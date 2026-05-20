@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Crear cuenta — StyleSense{% endblock %}
+{% block navbar %}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card animate-fade-in">
+    <div class="auth-logo">
+      <a href="/" style="display:inline-block;text-align:center;">
+        <div class="logo-icon">✂</div>
+        <div style="font-family:var(--font-display);font-weight:800;font-size:1.5rem;letter-spacing:-0.03em;margin-top:0.5rem;">
+          Style<span style="color:var(--red-mid)">Sense</span>
+        </div>
+      </a>
+    </div>
+
+    <h1 class="auth-title text-center">Crear cuenta gratis</h1>
+    <p class="auth-subtitle text-center">Empezá en segundos, sin tarjeta de crédito</p>
+
+    <div style="margin-top:var(--space-8);">
+      <form id="register-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="email">Email <span class="required">*</span></label>
+          <input type="email" id="email" class="form-input" placeholder="tu@email.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Contraseña <span class="required">*</span></label>
+          <div style="position:relative;">
+            <input type="password" id="password" class="form-input" placeholder="Mínimo 8 caracteres" required autocomplete="new-password" style="padding-right:3rem;">
+            <button type="button" id="toggle-pw" style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:0;" title="Ver contraseña">👁</button>
+          </div>
+          <div class="form-hint">Mínimo 8 caracteres</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password2">Confirmar contraseña <span class="required">*</span></label>
+          <input type="password" id="password2" class="form-input" placeholder="Repetí tu contraseña" required autocomplete="new-password">
+        </div>
+
+        <!-- Password strength indicator -->
+        <div style="margin-top:-var(--space-3);margin-bottom:var(--space-4);">
+          <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden;">
+            <div id="pw-strength-bar" style="height:100%;width:0;border-radius:2px;transition:all 0.3s;"></div>
+          </div>
+          <div id="pw-strength-text" style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;"></div>
+        </div>
+
+        <div id="register-error" class="hidden" style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:0.875rem;color:var(--red-light);"></div>
+
+        <div id="register-success" class="hidden" style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:0.875rem;color:#86efac;"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="register-btn">
+          Crear cuenta gratis →
+        </button>
+      </form>
+
+      <div class="auth-divider">o</div>
+
+      <p style="text-align:center;font-size:0.9rem;color:var(--text-muted);">
+        ¿Ya tenés cuenta?
+        <a href="/login" style="color:var(--blue-mid);font-weight:600;">Iniciar sesión</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const pwInput = document.getElementById('password');
+const strengthBar = document.getElementById('pw-strength-bar');
+const strengthText = document.getElementById('pw-strength-text');
+
+pwInput.addEventListener('input', () => {
+  const pw = pwInput.value;
+  let strength = 0;
+  if (pw.length >= 8) strength++;
+  if (/[A-Z]/.test(pw)) strength++;
+  if (/[0-9]/.test(pw)) strength++;
+  if (/[^A-Za-z0-9]/.test(pw)) strength++;
+
+  const colors = ['var(--red-mid)', 'var(--warning)', '#a3e635', 'var(--success)'];
+  const labels = ['Muy débil', 'Débil', 'Buena', 'Excelente'];
+  const widths = ['25%', '50%', '75%', '100%'];
+
+  if (pw.length > 0) {
+    strengthBar.style.width = widths[strength - 1] || '10%';
+    strengthBar.style.background = colors[strength - 1] || colors[0];
+    strengthText.textContent = labels[strength - 1] || 'Muy débil';
+  } else {
+    strengthBar.style.width = '0';
+    strengthText.textContent = '';
+  }
+});
+
+document.getElementById('toggle-pw').addEventListener('click', function() {
+  const pw = document.getElementById('password');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+  this.textContent = pw.type === 'password' ? '👁' : '🙈';
+});
+
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('register-btn');
+  const errDiv = document.getElementById('register-error');
+  const succDiv = document.getElementById('register-success');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const password2 = document.getElementById('password2').value;
+
+  errDiv.classList.add('hidden');
+  succDiv.classList.add('hidden');
+
+  if (!email || !password) {
+    errDiv.textContent = 'Completá todos los campos.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  if (password.length < 8) {
+    errDiv.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  if (password !== password2) {
+    errDiv.textContent = 'Las contraseñas no coinciden.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  btn.classList.add('btn-loading');
+  btn.disabled = true;
+  btn.textContent = 'Creando cuenta...';
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/onboarding`
+      }
+    });
+
+    if (error) throw error;
+
+    if (data.session) {
+      // Auto-confirmed (email verification disabled)
+      window.location.href = '/onboarding';
+    } else {
+      // Email verification required
+      succDiv.innerHTML = `
+        ✓ Cuenta creada. <strong>Revisá tu email</strong> para confirmar tu cuenta
+        antes de iniciar sesión.
+      `;
+      succDiv.classList.remove('hidden');
+      btn.textContent = '✓ Cuenta creada';
+    }
+  } catch (err) {
+    let msg = 'Error al crear la cuenta.';
+    if (err.message?.includes('already registered') || err.message?.includes('already been')) {
+      msg = 'Este email ya está registrado. <a href="/login" style="color:var(--blue-mid)">Iniciá sesión</a>.';
+    } else if (err.message) {
+      msg = err.message;
+    }
+    errDiv.innerHTML = msg;
+    errDiv.classList.remove('hidden');
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+    btn.textContent = 'Crear cuenta gratis →';
+  }
+});
+
+(async () => {
+  const session = await getSession();
+  if (session) window.location.href = '/dashboard';
+})();
+</script>
+{% endblock %}

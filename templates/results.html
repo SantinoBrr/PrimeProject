@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% block title %}Tus Recomendaciones — StyleSense{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+
+  <!-- Loading state -->
+  <div id="loading-state" class="text-center" style="padding:var(--space-16) 0;">
+    <div class="loading-spinner" style="margin:0 auto var(--space-4);"></div>
+    <div class="loading-text">Cargando tus recomendaciones...</div>
+  </div>
+
+  <!-- Results (hidden until loaded) -->
+  <div id="results-content" class="hidden animate-fade-in">
+
+    <!-- Header -->
+    <div style="margin-bottom:var(--space-10);">
+      <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);">
+        ✦ Análisis completado · Mayo 2026
+      </div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4);">
+        <div>
+          <h1 style="font-size:2rem;margin-bottom:var(--space-2);">Tus recomendaciones personalizadas</h1>
+          <p id="analysis-text" style="max-width:640px;"></p>
+        </div>
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+          <a href="/analyze" class="btn btn-outline btn-sm">🔄 Nuevo análisis</a>
+          <a href="/feedback" class="btn btn-secondary btn-sm">📸 Subir mi corte</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Face Shape Card -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8);">
+      <div class="card card-glow-red">
+        <div style="display:flex;align-items:center;gap:var(--space-4);">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(220,38,38,0.1);border:2px solid rgba(220,38,38,0.3);display:flex;align-items:center;justify-content:center;font-size:1.75rem;flex-shrink:0;">👤</div>
+          <div>
+            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);font-weight:700;margin-bottom:4px;">Forma del Rostro</div>
+            <div id="face-shape" style="font-family:var(--font-display);font-size:1.5rem;font-weight:800;text-transform:capitalize;"></div>
+            <div id="face-confidence" style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);font-weight:700;margin-bottom:var(--space-3);">Características Detectadas</div>
+        <div id="face-features" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);"></div>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div style="margin-bottom:var(--space-4);">
+      <h2 style="font-size:1.4rem;margin-bottom:var(--space-2);">✂ Los 5 mejores cortes para vos</h2>
+      <p style="font-size:0.9rem;color:var(--text-muted);">Ordenados de mayor a menor compatibilidad. Hacé clic en cada corte para ver más detalles.</p>
+    </div>
+
+    <div id="recommendations-list" style="display:flex;flex-direction:column;gap:var(--space-5);margin-bottom:var(--space-10);"></div>
+
+    <!-- Cuts to avoid -->
+    <div class="card card-glow-red mb-8">
+      <div class="card-header">
+        <div class="card-title" style="color:var(--red-bright);">🚫 Cortes a evitar</div>
+        <div class="card-subtitle">Por qué estos estilos no funcionarían bien con tu forma de rostro</div>
+      </div>
+      <div id="avoid-list" style="display:flex;flex-direction:column;gap:var(--space-3);"></div>
+    </div>
+
+    <!-- General tips -->
+    <div class="card mb-8">
+      <div class="card-header">
+        <div class="card-title">💡 Consejos generales de estilizado</div>
+      </div>
+      <div id="tips-list" style="display:flex;flex-direction:column;gap:var(--space-3);"></div>
+    </div>
+
+    <!-- Overall advice -->
+    <div class="card" style="background:rgba(124,58,237,0.05);border-color:rgba(124,58,237,0.2);">
+      <div class="card-title" style="color:var(--purple-light);margin-bottom:var(--space-3);">🎯 Consejo general</div>
+      <p id="overall-advice" style="color:var(--text-secondary);line-height:1.8;margin:0;"></p>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:var(--space-4);justify-content:center;margin-top:var(--space-10);flex-wrap:wrap;">
+      <a href="/feedback" class="btn btn-primary btn-lg">
+        📸 Ya me corté — Evaluar resultado
+      </a>
+      <a href="/analyze" class="btn btn-outline btn-lg">
+        🔄 Nuevo análisis
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<!-- Recommendation Detail Modal -->
+<div id="modal-overlay" class="hidden" style="position:fixed;inset:0;background:rgba(8,12,20,0.9);z-index:2000;display:flex;align-items:center;justify-content:center;padding:var(--space-4);backdrop-filter:blur(8px);" onclick="closeModal(event)">
+  <div id="modal-content" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-2xl);max-width:640px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-xl);" onclick="event.stopPropagation()">
+    <div id="modal-body" style="padding:var(--space-8);"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const analysisId = "{{ analysis_id }}";
+let analysisData = null;
+
+(async () => {
+  await requireAuth();
+
+  // Try sessionStorage first (fresh analysis)
+  const stored = sessionStorage.getItem('analysis_result');
+  if (stored) {
+    try {
+      analysisData = JSON.parse(stored);
+      sessionStorage.removeItem('analysis_result');
+      renderResults(analysisData);
+      return;
+    } catch {}
+  }
+
+  // Fetch from DB if ID is not 'local'
+  if (analysisId && analysisId !== 'local') {
+    try {
+      const result = await apiFetch(`/api/analysis/${analysisId}`);
+      if (result.success) {
+        const a = result.analysis;
+        analysisData = {
+          faceShape: a.face_shape,
+          faceFeatures: a.face_features,
+          analysisText: a.analysis_text,
+          recommendations: a.recommendations,
+          haircutsToAvoid: a.haircuts_to_avoid,
+          generalStylingTips: typeof a.styling_tips === 'string' ? JSON.parse(a.styling_tips) : a.styling_tips,
+          overallAdvice: a.overall_advice,
+        };
+        renderResults(analysisData);
+        return;
+      }
+    } catch {}
+  }
+
+  // No data found
+  document.getElementById('loading-state').innerHTML = `
+    <div style="font-size:3rem;margin-bottom:1rem;">😕</div>
+    <h3>Análisis no encontrado</h3>
+    <p>No encontramos este análisis. Hacé uno nuevo.</p>
+    <a href="/analyze" class="btn btn-primary mt-4">Ir a analizar</a>
+  `;
+})();
+
+function renderResults(data) {
+  document.getElementById('loading-state').classList.add('hidden');
+  document.getElementById('results-content').classList.remove('hidden');
+
+  // Face shape
+  document.getElementById('face-shape').textContent = capitalize(data.faceShape || 'No detectado');
+  document.getElementById('face-confidence').textContent = data.faceShapeConfidence ? `Confianza: ${data.faceShapeConfidence}%` : '';
+  document.getElementById('analysis-text').textContent = data.analysisText || '';
+
+  // Face features
+  const features = data.faceFeatures || {};
+  const featureLabels = {
+    jawline: 'Mandíbula',
+    forehead: 'Frente',
+    cheekbones: 'Pómulos',
+    faceLength: 'Longitud',
+    neckLength: 'Cuello',
+  };
+  const featEl = document.getElementById('face-features');
+  Object.entries(featureLabels).forEach(([key, label]) => {
+    if (features[key]) {
+      const item = document.createElement('div');
+      item.style.cssText = 'font-size:0.8rem;';
+      item.innerHTML = `<span style="color:var(--text-muted);display:block;font-weight:600;">${label}</span><span style="color:var(--text-secondary);">${features[key]}</span>`;
+      featEl.appendChild(item);
+    }
+  });
+
+  // Recommendations
+  const recList = document.getElementById('recommendations-list');
+  (data.recommendations || []).forEach((rec, i) => {
+    const card = createRecommendationCard(rec, i);
+    recList.appendChild(card);
+  });
+
+  // Cuts to avoid
+  const avoidList = document.getElementById('avoid-list');
+  (data.haircutsToAvoid || []).forEach(item => {
+    const el = document.createElement('div');
+    el.style.cssText = 'display:flex;gap:var(--space-3);align-items:flex-start;padding:var(--space-3);background:rgba(220,38,38,0.05);border-radius:var(--radius-md);border:1px solid rgba(220,38,38,0.15);';
+    el.innerHTML = `
+      <span style="font-size:1.1rem;flex-shrink:0;">✕</span>
+      <div>
+        <div style="font-weight:700;font-size:0.9rem;color:var(--red-bright);margin-bottom:4px;">${item.name}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);">${item.reason}</div>
+      </div>
+    `;
+    avoidList.appendChild(el);
+  });
+
+  // Tips
+  const tipsList = document.getElementById('tips-list');
+  const tips = Array.isArray(data.generalStylingTips)
+    ? data.generalStylingTips
+    : (typeof data.generalStylingTips === 'string' ? [data.generalStylingTips] : []);
+
+  tips.forEach((tip, i) => {
+    const el = document.createElement('div');
+    el.className = 'positive-item';
+    el.style.cssText = 'font-size:0.9rem;color:var(--text-secondary);';
+    el.innerHTML = `<span style="color:var(--blue-mid);flex-shrink:0;font-weight:700;">→</span><span>${tip}</span>`;
+    tipsList.appendChild(el);
+  });
+
+  // Overall advice
+  document.getElementById('overall-advice').textContent = data.overallAdvice || '';
+}
+
+function createRecommendationCard(rec, index) {
+  const rankBadgeClass = ['badge-rank-1', 'badge-rank-2', 'badge-rank-3', 'badge-gray', 'badge-gray'][index] || 'badge-gray';
+  const suitColor = rec.suitabilityScore >= 9 ? 'var(--success)' : rec.suitabilityScore >= 7.5 ? 'var(--warning)' : 'var(--text-secondary)';
+  const trendColor = rec.trendScore >= 9 ? 'var(--red-bright)' : rec.trendScore >= 7.5 ? 'var(--warning)' : 'var(--text-secondary)';
+
+  const card = document.createElement('div');
+  card.className = `card-recommendation rank-${rec.rank || index + 1}`;
+  card.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);">
+      <div style="flex:1;">
+        <div class="rec-rank-badge">
+          <span class="badge ${rankBadgeClass} badge-rank">${rec.rank || index + 1}</span>
+          <span class="badge badge-gray">${categoryLabel(rec.category)}</span>
+          ${rec.maintenanceLevel ? `<span class="badge badge-${maintenanceColor(rec.maintenanceLevel)}">${rec.maintenanceLevel}</span>` : ''}
+        </div>
+        <h3 style="font-size:1.25rem;margin-bottom:var(--space-2);">${rec.name}</h3>
+        <p style="font-size:0.9rem;margin-bottom:0;">${rec.description}</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-end;flex-shrink:0;">
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:${suitColor};line-height:1;">${rec.suitabilityScore || '—'}</div>
+          <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Compatib.</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--font-display);font-size:1.25rem;font-weight:800;color:${trendColor};line-height:1;">${rec.trendScore || '—'}</div>
+          <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Tendencia</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:var(--space-4);">
+      <div class="score-bar">
+        <div class="score-bar-fill" style="width:${((rec.suitabilityScore || 0) / 10 * 100)}%"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:var(--space-4);font-size:0.85rem;color:var(--text-muted);">
+      ${rec.whySuitable || ''}
+    </div>
+
+    <div style="margin-top:var(--space-4);display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center;justify-content:space-between;">
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;">
+        ${rec.barberFrequency ? `<span class="badge badge-blue">✂ ${rec.barberFrequency}</span>` : ''}
+        ${rec.difficultyToAchieve ? `<span class="badge badge-gray">${diffLabel(rec.difficultyToAchieve)}</span>` : ''}
+        ${rec.budgetFriendly ? '<span class="badge badge-green">💰 Accesible</span>' : ''}
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick='openRecModal(${JSON.stringify(rec).replace(/'/g, "&apos;")})'>
+        Ver detalle completo →
+      </button>
+    </div>
+  `;
+
+  return card;
+}
+
+function openRecModal(rec) {
+  const modal = document.getElementById('modal-overlay');
+  const body = document.getElementById('modal-body');
+
+  const googleSearch = rec.imageSearchQuery ? `https://www.google.com/search?q=${encodeURIComponent(rec.imageSearchQuery)}&tbm=isch` : null;
+  const ytSearch = rec.youtubeQuery ? `https://www.youtube.com/results?search_query=${encodeURIComponent(rec.youtubeQuery)}` : null;
+  const pinterestSearch = rec.imageSearchQuery ? `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(rec.imageSearchQuery)}` : null;
+
+  const stepsHtml = (rec.stylingSteps || []).map(s => `
+    <div class="styling-step" style="display:flex;gap:var(--space-3);align-items:flex-start;margin-bottom:var(--space-2);">
+      <div style="font-size:0.875rem;color:var(--text-secondary);">${s}</div>
+    </div>
+  `).join('');
+
+  const productsHtml = (rec.products || []).map(p => {
+    const name = typeof p === 'string' ? p : p.name;
+    const purpose = typeof p === 'object' ? p.purpose : '';
+    return `<div class="badge badge-gray">${name}${purpose ? ` <span style="font-weight:400;opacity:0.7">· ${purpose}</span>` : ''}</div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-6);">
+      <div>
+        <div style="display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-2);">
+          <span class="badge badge-rank badge-rank-${rec.rank}" style="">#${rec.rank}</span>
+          <span class="badge badge-gray">${categoryLabel(rec.category)}</span>
+        </div>
+        <h2 style="font-size:1.5rem;">${rec.name}</h2>
+        ${rec.nameEn ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;font-style:italic;">${rec.nameEn}</div>` : ''}
+      </div>
+      <button onclick="closeModal()" class="btn btn-ghost btn-icon" style="font-size:1.25rem;color:var(--text-muted);">✕</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-6);">
+      <div class="feedback-score-item">
+        <div class="label">Compatibilidad</div>
+        <div class="value" style="color:var(--success);">${rec.suitabilityScore || '—'}</div>
+      </div>
+      <div class="feedback-score-item">
+        <div class="label">Tendencia 2026</div>
+        <div class="value" style="color:var(--red-bright);">${rec.trendScore || '—'}</div>
+      </div>
+    </div>
+
+    <div class="rec-section">
+      <div class="rec-section-title">📋 Descripción</div>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.description}</p>
+    </div>
+
+    <div class="rec-section">
+      <div class="rec-section-title">🎯 Por qué es ideal para vos</div>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.whySuitable || '—'}</p>
+    </div>
+
+    ${rec.hairTypeNote ? `
+    <div class="rec-section">
+      <div class="rec-section-title">💇 Con tu tipo de cabello</div>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.hairTypeNote}</p>
+    </div>
+    ` : ''}
+
+    ${stepsHtml ? `
+    <div class="rec-section">
+      <div class="rec-section-title">🪮 Cómo peinarlo — paso a paso</div>
+      <div class="styling-steps">${stepsHtml}</div>
+    </div>
+    ` : ''}
+
+    ${rec.barberScript ? `
+    <div class="rec-section">
+      <div class="rec-section-title">💬 Qué decirle a tu barbero</div>
+      <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:0.875rem;color:var(--text-secondary);line-height:1.7;font-style:italic;">"${rec.barberScript}"</div>
+      <button onclick="copyText('${rec.barberScript.replace(/'/g, "\\'")}')" class="btn btn-ghost btn-sm mt-4">📋 Copiar texto</button>
+    </div>
+    ` : ''}
+
+    ${productsHtml ? `
+    <div class="rec-section">
+      <div class="rec-section-title">🧴 Productos recomendados</div>
+      <div class="products-list">${productsHtml}</div>
+    </div>
+    ` : ''}
+
+    <div class="rec-section">
+      <div class="rec-section-title">🔍 Buscar referencias visuales</div>
+      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+        ${googleSearch ? `<a href="${googleSearch}" target="_blank" class="btn btn-outline btn-sm">Google Imágenes 🔗</a>` : ''}
+        ${pinterestSearch ? `<a href="${pinterestSearch}" target="_blank" class="btn btn-outline btn-sm">Pinterest 🔗</a>` : ''}
+        ${ytSearch ? `<a href="${ytSearch}" target="_blank" class="btn btn-outline btn-sm">YouTube Tutorial 🔗</a>` : ''}
+      </div>
+    </div>
+
+    <div style="margin-top:var(--space-6);padding-top:var(--space-4);border-top:1px solid var(--border);display:flex;gap:var(--space-3);flex-wrap:wrap;">
+      <a href="/feedback?haircut=${encodeURIComponent(rec.name)}&analysis_id=${analysisId}" class="btn btn-primary btn-sm">📸 Ya me hice este corte — Evaluarlo</a>
+      <button onclick="closeModal()" class="btn btn-outline btn-sm">← Volver</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(event) {
+  if (!event || event.currentTarget === event.target) {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('¡Copiado!', 'Texto copiado al portapapeles.', 'success', 2000);
+  });
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+function categoryLabel(cat) {
+  const labels = {
+    fade: 'Fade', undercut: 'Undercut', textured: 'Texturizado',
+    natural: 'Natural', classic: 'Clásico', crop: 'Crop',
+    wolf: 'Wolf Cut', buzz: 'Buzz', medium: 'Media Longitud',
+  };
+  return labels[cat] || capitalize(cat || 'Otro');
+}
+
+function maintenanceColor(level) {
+  return { bajo: 'green', medio: 'yellow', alto: 'red' }[level] || 'gray';
+}
+
+function diffLabel(diff) {
+  return { fácil: '⬤ Fácil', moderado: '⬤ Moderado', difícil: '⬤ Difícil' }[diff] || diff;
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}Configurar Perfil — StyleSense{% endblock %}
+
+{% block content %}
+<div class="container-sm" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);">
+      Paso 1 de 1 · Solo lo hacés una vez
+    </div>
+    <h1 style="font-size:2rem;margin-bottom:var(--space-3);">Configurá tu perfil capilar</h1>
+    <p>Esta información permite al algoritmo personalizar las recomendaciones exactamente para vos.</p>
+  </div>
+
+  <!-- Progress bar -->
+  <div style="background:var(--border);border-radius:var(--radius-full);height:4px;margin-bottom:var(--space-10);overflow:hidden;">
+    <div id="progress-bar" style="height:100%;background:var(--gradient-red);border-radius:var(--radius-full);transition:width 0.4s ease;width:0%"></div>
+  </div>
+
+  <form id="onboarding-form" novalidate>
+
+    <!-- SECTION 1: Datos personales -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <div class="card-title">👤 Datos personales</div>
+        <div class="card-subtitle">Influyen en qué tendencias son adecuadas para vos</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="full_name">Nombre <span class="required">*</span></label>
+          <input type="text" id="full_name" class="form-input" placeholder="Tu nombre" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="age">Edad <span class="required">*</span></label>
+          <input type="number" id="age" class="form-input" placeholder="25" min="10" max="100" required>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-top:var(--space-4);">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="country">País <span class="required">*</span></label>
+          <select id="country" class="form-select" required>
+            <option value="">Seleccionar...</option>
+            <option value="Argentina">Argentina</option>
+            <option value="México">México</option>
+            <option value="Colombia">Colombia</option>
+            <option value="España">España</option>
+            <option value="Chile">Chile</option>
+            <option value="Uruguay">Uruguay</option>
+            <option value="Perú">Perú</option>
+            <option value="Venezuela">Venezuela</option>
+            <option value="Brasil">Brasil</option>
+            <option value="Estados Unidos">Estados Unidos</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label" for="city">Ciudad</label>
+          <input type="text" id="city" class="form-input" placeholder="Buenos Aires">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Tipo de cabello -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <div class="card-title">💇 Tipo de cabello</div>
+        <div class="card-subtitle">Define qué técnicas de corte son posibles y cuáles no</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Textura <span class="required">*</span></label>
+        <div class="option-cards" style="grid-template-columns:repeat(5,1fr);">
+          <div class="option-card">
+            <input type="radio" name="hair_type" id="ht-straight" value="straight" required>
+            <label for="ht-straight"><span class="icon">〜</span>Lacio</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_type" id="ht-wavy" value="wavy">
+            <label for="ht-wavy"><span class="icon">〰</span>Ondulado</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_type" id="ht-curly" value="curly">
+            <label for="ht-curly"><span class="icon">🌀</span>Rizado</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_type" id="ht-coily" value="coily">
+            <label for="ht-coily"><span class="icon">🌿</span>Muy rizado</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_type" id="ht-kinky" value="kinky">
+            <label for="ht-kinky"><span class="icon">☁</span>Afro/crespo</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Densidad <span class="required">*</span></label>
+        <div class="option-cards" style="grid-template-columns:repeat(3,1fr);">
+          <div class="option-card">
+            <input type="radio" name="hair_density" id="hd-fine" value="fine" required>
+            <label for="hd-fine"><span class="icon">🪶</span>Fino</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_density" id="hd-medium" value="medium">
+            <label for="hd-medium"><span class="icon">⚖</span>Normal</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="hair_density" id="hd-thick" value="thick">
+            <label for="hd-thick"><span class="icon">🌲</span>Grueso/abundante</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: Dirección de crecimiento -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <div class="card-title">↕ Dirección de crecimiento</div>
+        <div class="card-subtitle">¿Hacia dónde crece naturalmente tu cabello desde el cuero cabelludo?</div>
+      </div>
+
+      <div class="option-cards" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr));">
+        <div class="option-card">
+          <input type="radio" name="hair_growth" id="hg-upward" value="upward" required>
+          <label for="hg-upward"><span class="icon">⬆</span>Hacia arriba</label>
+        </div>
+        <div class="option-card">
+          <input type="radio" name="hair_growth" id="hg-sideways" value="sideways">
+          <label for="hg-sideways"><span class="icon">↔</span>Hacia los lados</label>
+        </div>
+        <div class="option-card">
+          <input type="radio" name="hair_growth" id="hg-downward" value="downward">
+          <label for="hg-downward"><span class="icon">⬇</span>Hacia abajo</label>
+        </div>
+        <div class="option-card">
+          <input type="radio" name="hair_growth" id="hg-forward" value="forward">
+          <label for="hg-forward"><span class="icon">⬅</span>Hacia adelante</label>
+        </div>
+        <div class="option-card">
+          <input type="radio" name="hair_growth" id="hg-mixed" value="mixed">
+          <label for="hg-mixed"><span class="icon">🌀</span>Mixto/remolinos</label>
+        </div>
+      </div>
+
+      <div style="margin-top:var(--space-4);padding:var(--space-3) var(--space-4);background:var(--bg-input);border-radius:var(--radius-md);border:1px solid var(--border);">
+        <p style="font-size:0.825rem;color:var(--text-muted);margin:0;">
+          💡 <strong>¿Cómo saberlo?</strong> Dejá crecer el cabello sin aplicar productos. Observá naturalmente hacia dónde cae la mayor parte del pelo desde la raíz.
+        </p>
+      </div>
+    </div>
+
+    <!-- SECTION 4: Estilo y mantenimiento -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <div class="card-title">🎨 Estilo y mantenimiento</div>
+        <div class="card-subtitle">Para filtrar tendencias que realmente se adapten a tu vida</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Preferencia de estilo <span class="required">*</span></label>
+        <div class="option-cards" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));">
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-classic" value="classic" required>
+            <label for="sp-classic"><span class="icon">🎩</span>Clásico</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-modern" value="modern">
+            <label for="sp-modern"><span class="icon">⚡</span>Moderno</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-casual" value="casual">
+            <label for="sp-casual"><span class="icon">😎</span>Casual</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-professional" value="professional">
+            <label for="sp-professional"><span class="icon">💼</span>Profesional</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-edgy" value="edgy">
+            <label for="sp-edgy"><span class="icon">🔥</span>Atrevido</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-street" value="streetwear">
+            <label for="sp-street"><span class="icon">🏙</span>Urbano</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="style_pref" id="sp-mixed" value="mixed">
+            <label for="sp-mixed"><span class="icon">🎭</span>Versátil</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nivel de mantenimiento <span class="required">*</span></label>
+        <div class="option-cards" style="grid-template-columns:repeat(3,1fr);">
+          <div class="option-card">
+            <input type="radio" name="maintenance" id="mt-low" value="low" required>
+            <label for="mt-low"><span class="icon">😴</span>Mínimo<div style="font-size:0.7rem;margin-top:4px;color:var(--text-dim)">5 min/día</div></label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="maintenance" id="mt-medium" value="medium">
+            <label for="mt-medium"><span class="icon">⚡</span>Moderado<div style="font-size:0.7rem;margin-top:4px;color:var(--text-dim)">15 min/día</div></label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="maintenance" id="mt-high" value="high">
+            <label for="mt-high"><span class="icon">💪</span>Alto<div style="font-size:0.7rem;margin-top:4px;color:var(--text-dim)">30+ min/día</div></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Estilo de vida</label>
+        <div class="option-cards" style="grid-template-columns:repeat(auto-fill,minmax(115px,1fr));">
+          <div class="option-card">
+            <input type="radio" name="lifestyle" id="lf-active" value="active">
+            <label for="lf-active"><span class="icon">🏃</span>Activo/deportes</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="lifestyle" id="lf-office" value="office">
+            <label for="lf-office"><span class="icon">💼</span>Oficina</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="lifestyle" id="lf-creative" value="creative">
+            <label for="lf-creative"><span class="icon">🎨</span>Creativo</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="lifestyle" id="lf-student" value="student">
+            <label for="lf-student"><span class="icon">📚</span>Estudiante</label>
+          </div>
+          <div class="option-card">
+            <input type="radio" name="lifestyle" id="lf-mixed" value="mixed" checked>
+            <label for="lf-mixed"><span class="icon">🌐</span>Mixto</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 5: Notas adicionales -->
+    <div class="card mb-8">
+      <div class="card-header">
+        <div class="card-title">📝 Notas adicionales (opcional)</div>
+        <div class="card-subtitle">¿Hay algo específico que quieras que el algoritmo sepa?</div>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <textarea id="additional_notes" class="form-textarea" placeholder="Ej: Tengo las orejas salidas y prefiero no remarcarlas. Me gusta el efecto desordenado. Trabajo en un banco y debo mantener look conservador entre semana..." rows="3"></textarea>
+        <div class="form-hint">Estos detalles se incluyen directamente en el prompt que se envía a Claude.</div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="form-error" class="hidden" style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:0.875rem;color:var(--red-light);"></div>
+
+    <!-- Submit -->
+    <button type="submit" class="btn btn-primary btn-xl btn-full" id="save-btn">
+      Guardar perfil y comenzar →
+    </button>
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auth guard
+requireAuth();
+
+// Load existing profile if any
+(async () => {
+  try {
+    const data = await apiFetch('/api/profile');
+    if (data.success && data.profile) {
+      const p = data.profile;
+      if (p.full_name) document.getElementById('full_name').value = p.full_name;
+      if (p.age) document.getElementById('age').value = p.age;
+      if (p.country) document.getElementById('country').value = p.country;
+      if (p.city) document.getElementById('city').value = p.city;
+      if (p.hair_type) {
+        const el = document.querySelector(`input[name="hair_type"][value="${p.hair_type}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.hair_density) {
+        const el = document.querySelector(`input[name="hair_density"][value="${p.hair_density}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.hair_growth_direction) {
+        const el = document.querySelector(`input[name="hair_growth"][value="${p.hair_growth_direction}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.style_preference) {
+        const el = document.querySelector(`input[name="style_pref"][value="${p.style_preference}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.maintenance_level) {
+        const el = document.querySelector(`input[name="maintenance"][value="${p.maintenance_level}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.lifestyle) {
+        const el = document.querySelector(`input[name="lifestyle"][value="${p.lifestyle}"]`);
+        if (el) el.checked = true;
+      }
+      if (p.additional_notes) document.getElementById('additional_notes').value = p.additional_notes;
+    }
+  } catch {}
+})();
+
+// Progress bar
+function updateProgress() {
+  const required = ['full_name', 'age', 'country'];
+  const radios = ['hair_type', 'hair_density', 'hair_growth', 'style_pref', 'maintenance'];
+  let filled = 0;
+  const total = required.length + radios.length;
+
+  required.forEach(id => { if (document.getElementById(id)?.value) filled++; });
+  radios.forEach(name => { if (document.querySelector(`input[name="${name}"]:checked`)) filled++; });
+
+  document.getElementById('progress-bar').style.width = `${Math.round(filled / total * 100)}%`;
+}
+
+document.querySelectorAll('input, select, textarea').forEach(el => {
+  el.addEventListener('change', updateProgress);
+  el.addEventListener('input', updateProgress);
+});
+
+// Submit
+document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('save-btn');
+  const errDiv = document.getElementById('form-error');
+  errDiv.classList.add('hidden');
+
+  // Validate required
+  const fullName = document.getElementById('full_name').value.trim();
+  const age = parseInt(document.getElementById('age').value);
+  const country = document.getElementById('country').value;
+  const hairType = document.querySelector('input[name="hair_type"]:checked')?.value;
+  const hairDensity = document.querySelector('input[name="hair_density"]:checked')?.value;
+  const hairGrowth = document.querySelector('input[name="hair_growth"]:checked')?.value;
+  const stylePref = document.querySelector('input[name="style_pref"]:checked')?.value;
+  const maintenance = document.querySelector('input[name="maintenance"]:checked')?.value;
+
+  if (!fullName || !age || !country || !hairType || !hairDensity || !hairGrowth || !stylePref || !maintenance) {
+    errDiv.textContent = 'Por favor completá todos los campos requeridos (marcados con *).';
+    errDiv.classList.remove('hidden');
+    errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  if (age < 10 || age > 100) {
+    errDiv.textContent = 'La edad debe ser entre 10 y 100 años.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  btn.classList.add('btn-loading');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const payload = {
+      full_name: fullName,
+      age,
+      country,
+      city: document.getElementById('city').value.trim(),
+      hair_type: hairType,
+      hair_density: hairDensity,
+      hair_growth_direction: hairGrowth,
+      style_preference: stylePref,
+      maintenance_level: maintenance,
+      lifestyle: document.querySelector('input[name="lifestyle"]:checked')?.value || 'mixed',
+      additional_notes: document.getElementById('additional_notes').value.trim(),
+    };
+
+    const result = await apiFetch('/api/profile', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (result.success) {
+      showToast('¡Perfil guardado!', 'Ahora podés analizar tu rostro.', 'success');
+      setTimeout(() => window.location.href = '/analyze', 1200);
+    } else {
+      throw new Error(result.error || 'Error desconocido');
+    }
+  } catch (err) {
+    errDiv.textContent = err.message || 'Error al guardar el perfil.';
+    errDiv.classList.remove('hidden');
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+    btn.textContent = 'Guardar perfil y comenzar →';
+  }
+});
+</script>
+{% endblock %}

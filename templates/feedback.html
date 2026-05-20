@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+{% block title %}Evaluar Mi Corte — StyleSense{% endblock %}
+
+{% block content %}
+<div class="container-sm" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+
+  <div class="page-header" style="padding-top:0;">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);">
+      📸 Evaluación Post-Corte
+    </div>
+    <h1 class="page-title" style="font-size:2rem;">¿Ya te cortaste?</h1>
+    <p class="page-subtitle">Subí una foto de tu corte terminado y la IA lo compara con la recomendación original para darte feedback específico.</p>
+  </div>
+
+  <!-- Step 1: Select haircut + analysis -->
+  <div class="card mb-6" id="step1-section">
+    <div class="card-header">
+      <div class="card-title">1 · ¿Qué corte te hiciste?</div>
+      <div class="card-subtitle">Seleccioná el corte del último análisis o escribí el nombre</div>
+    </div>
+
+    <div id="analyses-loading" class="text-center" style="padding:var(--space-6) 0;">
+      <div class="loading-spinner" style="margin:0 auto;width:24px;height:24px;border-width:2px;"></div>
+    </div>
+
+    <div id="analyses-list" class="hidden"></div>
+
+    <div class="form-group" style="margin-top:var(--space-4);">
+      <label class="form-label" for="haircut-name">Nombre del corte</label>
+      <input type="text" id="haircut-name" class="form-input" placeholder="Ej: French Crop Texturizado 2026..." required>
+      <div class="form-hint">Si no apareció en la lista de arriba, escribilo manualmente.</div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label" for="analysis-select">Análisis de referencia (opcional)</label>
+      <select id="analysis-select" class="form-select">
+        <option value="">Seleccionar análisis anterior...</option>
+      </select>
+      <div class="form-hint">Vincular a un análisis anterior permite comparar más precisamente.</div>
+    </div>
+  </div>
+
+  <!-- Step 2: Upload photo -->
+  <div class="card mb-6">
+    <div class="card-header">
+      <div class="card-title">2 · Foto del resultado</div>
+      <div class="card-subtitle">Tomate la foto de frente, con buena luz, mostrando el corte terminado</div>
+    </div>
+
+    <div class="upload-zone" id="result-upload-zone">
+      <input type="file" id="result-file-input" accept="image/jpeg,image/png,image/webp" onchange="handleResultFile(event)">
+      <div class="upload-icon">📷</div>
+      <div class="upload-title">Subí la foto de tu corte</div>
+      <div class="upload-subtitle">JPG, PNG, WebP · Máx 10MB</div>
+    </div>
+
+    <div id="result-preview-wrap" class="hidden" style="margin-top:var(--space-4);">
+      <div style="position:relative;max-width:300px;margin:0 auto;border-radius:var(--radius-xl);overflow:hidden;aspect-ratio:3/4;">
+        <img id="result-preview" src="" alt="Foto del resultado" style="width:100%;height:100%;object-fit:cover;">
+        <button onclick="clearResult()" style="position:absolute;top:var(--space-2);right:var(--space-2);background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:var(--radius-md);color:white;padding:0.4rem 0.6rem;font-size:0.75rem;cursor:pointer;">✕ Cambiar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="feedback-error" class="hidden" style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:0.875rem;color:var(--red-light);"></div>
+
+  <!-- Submit button -->
+  <button class="btn btn-primary btn-xl btn-full" id="feedback-btn" onclick="submitFeedback()">
+    🔍 Analizar mi corte →
+  </button>
+  <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-top:var(--space-3);">El análisis tarda entre 10 y 20 segundos</p>
+
+  <!-- Results section (shown after analysis) -->
+  <div id="feedback-results" class="hidden animate-slide-up" style="margin-top:var(--space-10);">
+    <div class="divider"></div>
+
+    <h2 style="margin-bottom:var(--space-6);">📊 Resultado del análisis</h2>
+
+    <!-- Overall score -->
+    <div class="card mb-6" style="text-align:center;">
+      <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);font-weight:700;margin-bottom:var(--space-3);">Puntuación General</div>
+      <div id="overall-score" style="font-family:var(--font-display);font-size:5rem;font-weight:800;line-height:1;"></div>
+      <div id="score-label" style="font-size:1.1rem;font-weight:700;margin-top:var(--space-2);"></div>
+      <div id="feedback-verdict" class="badge" style="margin:var(--space-3) auto 0;display:inline-flex;"></div>
+    </div>
+
+    <!-- Score breakdown -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <div class="card-title">Desglose de puntuación</div>
+      </div>
+      <div class="feedback-score-grid" id="score-breakdown"></div>
+    </div>
+
+    <!-- What worked -->
+    <div class="card mb-6" style="background:rgba(34,197,94,0.04);border-color:rgba(34,197,94,0.2);">
+      <div class="card-header">
+        <div class="card-title" style="color:#86efac;">✓ Lo que quedó bien</div>
+      </div>
+      <div id="what-worked" style="display:flex;flex-direction:column;gap:var(--space-2);"></div>
+    </div>
+
+    <!-- Areas to improve -->
+    <div class="card mb-6" id="improve-section">
+      <div class="card-header">
+        <div class="card-title" style="color:#fde68a;">📌 Áreas de mejora</div>
+      </div>
+      <div id="improvement-areas"></div>
+    </div>
+
+    <!-- Overall feedback -->
+    <div class="card mb-6">
+      <div class="card-title" style="margin-bottom:var(--space-3);">💬 Evaluación general</div>
+      <p id="overall-feedback" style="color:var(--text-secondary);line-height:1.8;margin:0;"></p>
+    </div>
+
+    <!-- Next appointment -->
+    <div class="card mb-6" style="background:rgba(59,130,246,0.05);border-color:rgba(59,130,246,0.2);">
+      <div class="card-title" style="color:var(--blue-light);margin-bottom:var(--space-3);">✂ Próxima visita al barbero</div>
+      <div id="next-appointment" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:0.875rem;color:var(--text-secondary);line-height:1.7;font-style:italic;"></div>
+      <div style="margin-top:var(--space-3);">
+        <button onclick="copyNextAppointment()" class="btn btn-ghost btn-sm">📋 Copiar para mostrar al barbero</button>
+        <span id="days-between" style="font-size:0.8rem;color:var(--text-muted);margin-left:var(--space-3);"></span>
+      </div>
+    </div>
+
+    <!-- Maintenance tip -->
+    <div class="card mb-6">
+      <div class="card-title" style="margin-bottom:var(--space-3);">🧴 Mantenimiento del corte</div>
+      <p id="maintenance-tip" style="color:var(--text-secondary);margin:0;line-height:1.7;"></p>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;margin-top:var(--space-6);">
+      <a href="/analyze" class="btn btn-outline btn-lg">🔄 Nuevo análisis facial</a>
+      <button onclick="resetFeedback()" class="btn btn-ghost btn-lg">📸 Evaluar otro corte</button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let resultBlob = null;
+let feedbackData = null;
+
+// Auth guard
+(async () => {
+  const session = await requireAuth();
+  if (!session) return;
+  loadAnalysesData();
+
+  // Pre-fill haircut from URL params
+  const params = new URLSearchParams(window.location.search);
+  const haircut = params.get('haircut');
+  const analysisId = params.get('analysis_id');
+  if (haircut) document.getElementById('haircut-name').value = decodeURIComponent(haircut);
+  if (analysisId) document.getElementById('analysis-select').value = analysisId;
+})();
+
+async function loadAnalysesData() {
+  try {
+    const data = await apiFetch('/api/analyses');
+    const listEl = document.getElementById('analyses-list');
+    const selectEl = document.getElementById('analysis-select');
+    document.getElementById('analyses-loading').classList.add('hidden');
+
+    if (data.analyses && data.analyses.length > 0) {
+      listEl.classList.remove('hidden');
+
+      // Recent analyses cards
+      const recentSection = document.createElement('div');
+      recentSection.innerHTML = '<div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--space-3);">Análisis recientes</div>';
+
+      data.analyses.slice(0, 3).forEach(analysis => {
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:var(--space-3) var(--space-4);background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;margin-bottom:var(--space-2);transition:var(--transition);';
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;">${analysis.face_shape ? capitalize(analysis.face_shape) : 'Rostro analizado'}</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">${new Date(analysis.created_at).toLocaleDateString('es-AR', {day:'numeric',month:'long',year:'numeric'})}</div>
+            </div>
+            <span style="font-size:0.75rem;color:var(--blue-mid);">Usar →</span>
+          </div>
+        `;
+        card.addEventListener('mouseover', () => card.style.borderColor = 'var(--border-hover)');
+        card.addEventListener('mouseout', () => card.style.borderColor = 'var(--border)');
+        card.addEventListener('click', () => {
+          selectEl.value = analysis.id;
+          showToast('Análisis seleccionado', `Análisis del ${new Date(analysis.created_at).toLocaleDateString('es-AR')}`, 'info', 2000);
+        });
+
+        recentSection.appendChild(card);
+
+        // Also add to select
+        const opt = document.createElement('option');
+        opt.value = analysis.id;
+        opt.textContent = `${analysis.face_shape ? capitalize(analysis.face_shape) : 'Análisis'} · ${new Date(analysis.created_at).toLocaleDateString('es-AR')}`;
+        selectEl.appendChild(opt);
+      });
+
+      listEl.appendChild(recentSection);
+    } else {
+      document.getElementById('analyses-loading').innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);text-align:center;padding:var(--space-3);">No hay análisis anteriores. <a href="/analyze" style="color:var(--blue-mid)">Hacer uno ahora →</a></div>';
+      document.getElementById('analyses-loading').classList.remove('hidden');
+    }
+  } catch {
+    document.getElementById('analyses-loading').innerHTML = '';
+  }
+}
+
+function handleResultFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Error', 'Seleccioná una imagen válida (JPG, PNG, WebP).', 'error');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Error', 'La imagen no puede superar los 10MB.', 'error');
+    return;
+  }
+  resultBlob = file;
+  const url = URL.createObjectURL(file);
+  document.getElementById('result-preview').src = url;
+  document.getElementById('result-preview-wrap').classList.remove('hidden');
+  document.getElementById('result-upload-zone').style.display = 'none';
+}
+
+function clearResult() {
+  resultBlob = null;
+  document.getElementById('result-preview').src = '';
+  document.getElementById('result-preview-wrap').classList.add('hidden');
+  document.getElementById('result-upload-zone').style.display = '';
+  document.getElementById('result-file-input').value = '';
+}
+
+async function submitFeedback() {
+  const btn = document.getElementById('feedback-btn');
+  const errDiv = document.getElementById('feedback-error');
+  const haircutName = document.getElementById('haircut-name').value.trim();
+  const analysisId = document.getElementById('analysis-select').value;
+
+  errDiv.classList.add('hidden');
+
+  if (!haircutName) {
+    errDiv.textContent = 'Por favor indicá qué corte te hiciste.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+  if (!resultBlob) {
+    errDiv.textContent = 'Por favor subí una foto del resultado.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.classList.add('btn-loading');
+  btn.textContent = 'Analizando...';
+  showLoading('Comparando tu corte con la recomendación...');
+
+  try {
+    const session = await getSession();
+    if (!session) { window.location.href = '/login'; return; }
+
+    // Upload result image
+    const fileName = `result_${Date.now()}.jpg`;
+    const filePath = `${session.user.id}/${fileName}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from('haircut-results')
+      .upload(filePath, resultBlob, { contentType: 'image/jpeg' });
+
+    if (uploadErr) throw new Error(`Error subiendo imagen: ${uploadErr.message}`);
+
+    const { data: signedData, error: signErr } = await supabase.storage
+      .from('haircut-results')
+      .createSignedUrl(filePath, 3600);
+
+    if (signErr) throw new Error(`Error obteniendo URL: ${signErr.message}`);
+
+    const result = await apiFetch('/api/analyze-result', {
+      method: 'POST',
+      body: JSON.stringify({
+        result_image_url: signedData.signedUrl,
+        selected_haircut: haircutName,
+        analysis_id: analysisId || null,
+      }),
+    });
+
+    if (!result.success) throw new Error(result.error || 'Error en el análisis');
+
+    feedbackData = result.data;
+    hideLoading();
+    renderFeedback(result.data);
+
+  } catch (err) {
+    hideLoading();
+    errDiv.textContent = err.message;
+    errDiv.classList.remove('hidden');
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+    btn.textContent = '🔍 Analizar mi corte →';
+  }
+}
+
+function renderFeedback(data) {
+  const score = data.overallScore || 0;
+  const verdicts = {
+    excellent: { label: '🏆 Excelente', color: 'var(--success)', badgeClass: 'badge-green' },
+    good: { label: '👍 Muy bueno', color: '#86efac', badgeClass: 'badge-green' },
+    acceptable: { label: '⚡ Aceptable', color: 'var(--warning)', badgeClass: 'badge-yellow' },
+    needs_work: { label: '🔧 A mejorar', color: 'var(--red-bright)', badgeClass: 'badge-red' },
+  };
+  const v = verdicts[data.verdict] || verdicts.acceptable;
+
+  document.getElementById('overall-score').textContent = score.toFixed(1);
+  document.getElementById('overall-score').style.color = v.color;
+  document.getElementById('score-label').textContent = v.label;
+  document.getElementById('feedback-verdict').textContent = data.verdict || '';
+  document.getElementById('feedback-verdict').className = `badge ${v.badgeClass}`;
+
+  // Score breakdown
+  const breakdown = data.scoreBreakdown || {};
+  const breakdownLabels = {
+    shapeAccuracy: 'Forma correcta',
+    proportions: 'Proporciones',
+    blendingTransitions: 'Transiciones',
+    lineDefinition: 'Líneas',
+    textureAndFinish: 'Textura',
+    styleMatch: 'Fidelidad al estilo',
+  };
+  const bdEl = document.getElementById('score-breakdown');
+  bdEl.innerHTML = '';
+  Object.entries(breakdownLabels).forEach(([key, label]) => {
+    if (breakdown[key] !== undefined) {
+      const item = document.createElement('div');
+      item.className = 'feedback-score-item';
+      const itemScore = breakdown[key];
+      const itemColor = itemScore >= 8.5 ? 'var(--success)' : itemScore >= 7 ? 'var(--warning)' : 'var(--red-bright)';
+      item.innerHTML = `
+        <div class="label">${label}</div>
+        <div class="value" style="color:${itemColor};">${itemScore}</div>
+      `;
+      bdEl.appendChild(item);
+    }
+  });
+
+  // What worked
+  const workedEl = document.getElementById('what-worked');
+  workedEl.innerHTML = '';
+  (data.whatWorkedWell || []).forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'positive-item';
+    el.style.fontSize = '0.9rem';
+    el.innerHTML = `<span style="color:var(--success);flex-shrink:0;font-weight:700;">✓</span><span>${item}</span>`;
+    workedEl.appendChild(el);
+  });
+
+  // Improvement areas
+  const improveEl = document.getElementById('improvement-areas');
+  improveEl.innerHTML = '';
+  if ((data.improvementAreas || []).length > 0) {
+    data.improvementAreas.forEach(area => {
+      const el = document.createElement('div');
+      el.className = 'improvement-item';
+      el.innerHTML = `
+        <div class="improvement-area">📍 ${area.area}</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:var(--space-2);">${area.issue}</div>
+        <div style="font-size:0.875rem;color:#fde68a;"><strong>Solución:</strong> ${area.howToFix}</div>
+      `;
+      improveEl.appendChild(el);
+    });
+  } else {
+    document.getElementById('improve-section').classList.add('hidden');
+  }
+
+  // Overall feedback
+  document.getElementById('overall-feedback').textContent = data.overallFeedback || '';
+
+  // Next appointment
+  document.getElementById('next-appointment').textContent = data.nextAppointmentInstructions || 'No disponible';
+  if (data.daysBetweenCuts) {
+    document.getElementById('days-between').textContent = `⏰ Volvé al barbero en aprox. ${data.daysBetweenCuts} días`;
+  }
+
+  // Maintenance tip
+  document.getElementById('maintenance-tip').textContent = data.maintenanceTip || '';
+
+  // Show results
+  document.getElementById('feedback-results').classList.remove('hidden');
+  document.getElementById('feedback-results').scrollIntoView({ behavior: 'smooth' });
+
+  // Update button
+  document.getElementById('feedback-btn').textContent = '✓ Análisis completado';
+  document.getElementById('feedback-btn').className = 'btn btn-outline btn-xl btn-full';
+}
+
+function copyNextAppointment() {
+  const text = document.getElementById('next-appointment').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('¡Copiado!', 'Instrucciones para el barbero copiadas.', 'success', 2000);
+  });
+}
+
+function resetFeedback() {
+  clearResult();
+  document.getElementById('feedback-results').classList.add('hidden');
+  document.getElementById('feedback-btn').textContent = '🔍 Analizar mi corte →';
+  document.getElementById('feedback-btn').className = 'btn btn-primary btn-xl btn-full';
+  document.getElementById('feedback-btn').disabled = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+</script>
+{% endblock %}

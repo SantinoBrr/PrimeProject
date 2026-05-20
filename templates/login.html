@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión — StyleSense{% endblock %}
+{% block navbar %}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card animate-fade-in">
+    <div class="auth-logo">
+      <a href="/" style="display:inline-block;text-align:center;">
+        <div class="logo-icon">✂</div>
+        <div style="font-family:var(--font-display);font-weight:800;font-size:1.5rem;letter-spacing:-0.03em;margin-top:0.5rem;">
+          Style<span style="color:var(--red-mid)">Sense</span>
+        </div>
+      </a>
+    </div>
+
+    <h1 class="auth-title text-center">Bienvenido de vuelta</h1>
+    <p class="auth-subtitle text-center">Iniciá sesión para acceder a tus recomendaciones</p>
+
+    <div style="margin-top:var(--space-8);">
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="email">Email <span class="required">*</span></label>
+          <input type="email" id="email" class="form-input" placeholder="tu@email.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">
+            Contraseña <span class="required">*</span>
+          </label>
+          <div style="position:relative;">
+            <input type="password" id="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" style="padding-right:3rem;">
+            <button type="button" id="toggle-pw" style="position:absolute;right:1rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:0;" title="Mostrar/ocultar">👁</button>
+          </div>
+        </div>
+
+        <div id="login-error" class="hidden" style="background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4);font-size:0.875rem;color:var(--red-light);"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="login-btn" style="margin-top:var(--space-2);">
+          Iniciar sesión →
+        </button>
+      </form>
+
+      <div class="auth-divider">o</div>
+
+      <p style="text-align:center;font-size:0.9rem;color:var(--text-muted);">
+        ¿No tenés cuenta?
+        <a href="/register" style="color:var(--blue-mid);font-weight:600;">Crear cuenta gratis</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('toggle-pw').addEventListener('click', function() {
+  const pw = document.getElementById('password');
+  pw.type = pw.type === 'password' ? 'text' : 'password';
+  this.textContent = pw.type === 'password' ? '👁' : '🙈';
+});
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  const errDiv = document.getElementById('login-error');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!email || !password) {
+    errDiv.textContent = 'Completá todos los campos.';
+    errDiv.classList.remove('hidden');
+    return;
+  }
+
+  btn.classList.add('btn-loading');
+  btn.disabled = true;
+  btn.textContent = 'Iniciando sesión...';
+  errDiv.classList.add('hidden');
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+
+    // Check if profile is complete
+    const token = data.session.access_token;
+    const res = await fetch('/api/profile', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const profile = await res.json();
+
+    if (profile.success && profile.profile?.profile_complete) {
+      window.location.href = '/dashboard';
+    } else {
+      window.location.href = '/onboarding';
+    }
+  } catch (err) {
+    let msg = 'Error al iniciar sesión.';
+    if (err.message?.includes('Invalid login')) msg = 'Email o contraseña incorrectos.';
+    else if (err.message?.includes('Email not confirmed')) msg = 'Por favor confirmá tu email primero.';
+    else if (err.message) msg = err.message;
+
+    errDiv.textContent = msg;
+    errDiv.classList.remove('hidden');
+    btn.classList.remove('btn-loading');
+    btn.disabled = false;
+    btn.textContent = 'Iniciar sesión →';
+  }
+});
+
+// Already logged in? Redirect
+(async () => {
+  const session = await getSession();
+  if (session) window.location.href = '/dashboard';
+})();
+</script>
+{% endblock %}

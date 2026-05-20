@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — StyleSense{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+
+  <!-- Header -->
+  <div style="margin-bottom:var(--space-8);">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-3);">
+      ✦ Tu espacio personal
+    </div>
+    <h1 id="welcome-msg" style="font-size:2rem;margin-bottom:var(--space-2);">Bienvenido de vuelta</h1>
+    <p id="profile-status" style="color:var(--text-muted);"></p>
+  </div>
+
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4);margin-bottom:var(--space-8);" id="stats-row">
+    <div class="stat-card skeleton" style="height:80px;"></div>
+    <div class="stat-card skeleton" style="height:80px;"></div>
+    <div class="stat-card skeleton" style="height:80px;"></div>
+  </div>
+
+  <!-- Main grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);" id="main-grid">
+
+    <!-- Quick actions -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⚡ Acciones rápidas</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+        <a href="/analyze" class="btn btn-primary btn-lg" style="justify-content:flex-start;gap:var(--space-3);">
+          <span style="font-size:1.25rem;">📸</span>
+          <div>
+            <div style="font-weight:700;">Analizar mi rostro</div>
+            <div style="font-size:0.75rem;opacity:0.75;font-weight:400;">Obtener nuevas recomendaciones</div>
+          </div>
+        </a>
+        <a href="/feedback" class="btn btn-secondary btn-lg" style="justify-content:flex-start;gap:var(--space-3);">
+          <span style="font-size:1.25rem;">✅</span>
+          <div>
+            <div style="font-weight:700;">Evaluar mi corte</div>
+            <div style="font-size:0.75rem;opacity:0.75;font-weight:400;">Feedback del resultado</div>
+          </div>
+        </a>
+        <a href="/onboarding" class="btn btn-outline btn-lg" style="justify-content:flex-start;gap:var(--space-3);">
+          <span style="font-size:1.25rem;">⚙</span>
+          <div>
+            <div style="font-weight:700;">Actualizar perfil</div>
+            <div style="font-size:0.75rem;opacity:0.75;">Cambiar preferencias</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Profile summary -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">👤 Mi perfil capilar</div>
+        <a href="/onboarding" style="font-size:0.8rem;color:var(--blue-mid);">Editar →</a>
+      </div>
+      <div id="profile-summary" style="display:flex;flex-direction:column;gap:var(--space-3);">
+        <div class="skeleton" style="height:20px;border-radius:4px;"></div>
+        <div class="skeleton" style="height:20px;border-radius:4px;width:80%;"></div>
+        <div class="skeleton" style="height:20px;border-radius:4px;width:60%;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Recent analyses -->
+  <div style="margin-top:var(--space-8);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);">
+      <h2 style="font-size:1.3rem;">📋 Análisis recientes</h2>
+      <a href="/analyze" class="btn btn-outline btn-sm">Nuevo análisis +</a>
+    </div>
+    <div id="analyses-list">
+      <div class="skeleton" style="height:80px;border-radius:var(--radius-xl);margin-bottom:var(--space-3);"></div>
+      <div class="skeleton" style="height:80px;border-radius:var(--radius-xl);margin-bottom:var(--space-3);"></div>
+    </div>
+  </div>
+
+  <!-- Recent results -->
+  <div style="margin-top:var(--space-8);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-5);">
+      <h2 style="font-size:1.3rem;">🏆 Cortes evaluados</h2>
+      <a href="/feedback" class="btn btn-outline btn-sm">Evaluar corte +</a>
+    </div>
+    <div id="results-list">
+      <div style="text-align:center;padding:var(--space-8);color:var(--text-muted);font-size:0.9rem;" id="no-results">
+        <div style="font-size:2rem;margin-bottom:var(--space-3);">✂</div>
+        Todavía no evaluaste ningún corte. <a href="/feedback" style="color:var(--blue-mid);">Hacerlo ahora →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const hairTypeLabels = { straight:'Lacio', wavy:'Ondulado', curly:'Rizado', coily:'Muy rizado', kinky:'Afro/crespo' };
+const growthLabels = { upward:'Hacia arriba', sideways:'Hacia los lados', downward:'Hacia abajo', forward:'Hacia adelante', mixed:'Mixto' };
+const styleLabels = { classic:'Clásico', modern:'Moderno', casual:'Casual', professional:'Profesional', edgy:'Atrevido', streetwear:'Urbano', mixed:'Versátil' };
+const maintLabels = { low:'Mínimo', medium:'Moderado', high:'Alto' };
+
+(async () => {
+  const session = await requireAuth();
+  if (!session) return;
+
+  // Load data in parallel
+  await Promise.all([loadProfile(session), loadAnalyses(), loadResults()]);
+})();
+
+async function loadProfile(session) {
+  try {
+    const data = await apiFetch('/api/profile');
+    if (!data.success) {
+      window.location.href = '/onboarding';
+      return;
+    }
+    const p = data.profile;
+    const welcomeEl = document.getElementById('welcome-msg');
+    const statusEl = document.getElementById('profile-status');
+    welcomeEl.textContent = `Hola, ${p.full_name || session.user.email.split('@')[0]}`;
+    statusEl.textContent = `${p.age ? p.age + ' años · ' : ''}${p.city ? p.city + ', ' : ''}${p.country || ''}`;
+
+    // Profile summary
+    const sumEl = document.getElementById('profile-summary');
+    sumEl.innerHTML = '';
+    const items = [
+      { icon: '💇', label: 'Cabello', value: hairTypeLabels[p.hair_type] || p.hair_type },
+      { icon: '↕', label: 'Crecimiento', value: growthLabels[p.hair_growth_direction] || p.hair_growth_direction },
+      { icon: '🎨', label: 'Estilo', value: styleLabels[p.style_preference] || p.style_preference },
+      { icon: '⚡', label: 'Mantenimiento', value: maintLabels[p.maintenance_level] || p.maintenance_level },
+    ];
+    items.forEach(item => {
+      if (item.value) {
+        const el = document.createElement('div');
+        el.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) 0;border-bottom:1px solid var(--border);';
+        el.innerHTML = `
+          <span style="font-size:0.85rem;color:var(--text-muted);">${item.icon} ${item.label}</span>
+          <span style="font-size:0.85rem;font-weight:600;color:var(--text-secondary);">${item.value}</span>
+        `;
+        sumEl.appendChild(el);
+      }
+    });
+
+  } catch {
+    window.location.href = '/onboarding';
+  }
+}
+
+async function loadAnalyses() {
+  const statsRow = document.getElementById('stats-row');
+  const analysesEl = document.getElementById('analyses-list');
+
+  try {
+    const data = await apiFetch('/api/analyses');
+    const count = data.analyses?.length || 0;
+
+    statsRow.innerHTML = `
+      <div class="stat-card">
+        <div class="stat-icon feature-icon-red">📊</div>
+        <div>
+          <div class="stat-value">${count}</div>
+          <div class="stat-label">Análisis realizados</div>
+        </div>
+      </div>
+    `;
+
+    if (count === 0) {
+      analysesEl.innerHTML = `
+        <div style="text-align:center;padding:var(--space-8);color:var(--text-muted);font-size:0.9rem;">
+          <div style="font-size:2rem;margin-bottom:var(--space-3);">📸</div>
+          No realizaste ningún análisis todavía. <a href="/analyze" style="color:var(--blue-mid);">Comenzar →</a>
+        </div>
+      `;
+      return;
+    }
+
+    analysesEl.innerHTML = '';
+    data.analyses.forEach(analysis => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.marginBottom = 'var(--space-3)';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);">
+          <div style="display:flex;align-items:center;gap:var(--space-4);">
+            <div style="width:44px;height:44px;border-radius:50%;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👤</div>
+            <div>
+              <div style="font-weight:700;font-size:0.95rem;">${analysis.face_shape ? 'Rostro ' + capitalize(analysis.face_shape) : 'Análisis facial'}</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">${new Date(analysis.created_at).toLocaleDateString('es-AR', {weekday:'short',day:'numeric',month:'long',year:'numeric'})}</div>
+            </div>
+          </div>
+          <a href="/results/${analysis.id}" class="btn btn-outline btn-sm">Ver →</a>
+        </div>
+      `;
+      analysesEl.appendChild(card);
+    });
+
+    // Update stats
+    statsRow.innerHTML += `
+      <div class="stat-card">
+        <div class="stat-icon feature-icon-blue">📅</div>
+        <div>
+          <div class="stat-value">${data.analyses[0]?.face_shape ? capitalize(data.analyses[0].face_shape) : '—'}</div>
+          <div class="stat-label">Último rostro</div>
+        </div>
+      </div>
+    `;
+
+  } catch {
+    analysesEl.innerHTML = '<div style="color:var(--error);font-size:0.85rem;">Error cargando análisis.</div>';
+  }
+}
+
+async function loadResults() {
+  try {
+    const data = await apiFetch('/api/results');
+    const count = data.results?.length || 0;
+    const statsRow = document.getElementById('stats-row');
+    statsRow.innerHTML += `
+      <div class="stat-card">
+        <div class="stat-icon feature-icon-purple">🏆</div>
+        <div>
+          <div class="stat-value">${count}</div>
+          <div class="stat-label">Cortes evaluados</div>
+        </div>
+      </div>
+    `;
+
+    if (count === 0) return;
+
+    document.getElementById('no-results').remove();
+    const listEl = document.getElementById('results-list');
+    data.results.forEach(res => {
+      const scoreColor = res.score >= 8.5 ? 'var(--success)' : res.score >= 7 ? 'var(--warning)' : 'var(--red-bright)';
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.marginBottom = 'var(--space-3)';
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);">
+          <div style="display:flex;align-items:center;gap:var(--space-4);">
+            <div style="font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:${scoreColor};min-width:50px;text-align:center;">${res.score?.toFixed(1) || '—'}</div>
+            <div>
+              <div style="font-weight:700;font-size:0.95rem;">${res.selected_haircut}</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">${new Date(res.created_at).toLocaleDateString('es-AR', {day:'numeric',month:'long',year:'numeric'})}</div>
+            </div>
+          </div>
+          <a href="/feedback" class="btn btn-outline btn-sm">Evaluar de nuevo →</a>
+        </div>
+      `;
+      listEl.appendChild(card);
+    });
+  } catch {}
+}
+
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+</script>
+{% endblock %}

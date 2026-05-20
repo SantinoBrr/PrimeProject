@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Analizar Rostro — StyleSense{% endblock %}
+
+{% block content %}
+<div class="container-sm" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+
+  <div class="page-header" style="padding-top:0;">
+    <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);">
+      ✂ Análisis con IA · Powered by Claude
+    </div>
+    <h1 class="page-title" style="font-size:2rem;">Fotografiá tu rostro</h1>
+    <p class="page-subtitle">La IA analizará la forma de tu rostro y generará 5 recomendaciones personalizadas de corte para 2026.</p>
+  </div>
+
+  <!-- Tips -->
+  <div class="card mb-6" style="background:rgba(59,130,246,0.05);border-color:rgba(59,130,246,0.2);">
+    <div style="display:flex;gap:var(--space-3);align-items:flex-start;">
+      <div style="font-size:1.5rem;flex-shrink:0;">📸</div>
+      <div>
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:var(--space-2);color:var(--blue-light)">Consejos para una foto óptima</div>
+        <ul style="font-size:0.85rem;color:var(--text-muted);display:flex;flex-direction:column;gap:4px;padding-left:var(--space-4);">
+          <li>Rostro de frente, mirando directamente a la cámara</li>
+          <li>Buena iluminación frontal, sin sombras fuertes</li>
+          <li>Cabello echado hacia atrás para ver la forma del rostro</li>
+          <li>Fondo neutro si es posible</li>
+          <li>Foto tomada a la altura de los ojos</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload modes -->
+  <div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-6);">
+    <button class="btn btn-primary" id="btn-mode-upload" onclick="setMode('upload')">
+      📁 Subir foto
+    </button>
+    <button class="btn btn-outline" id="btn-mode-camera" onclick="setMode('camera')">
+      📷 Usar cámara
+    </button>
+  </div>
+
+  <!-- Upload section -->
+  <div id="section-upload">
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" onchange="handleFileSelect(event)">
+      <div class="upload-icon">🖼️</div>
+      <div class="upload-title">Arrastrá tu foto aquí</div>
+      <div class="upload-subtitle">o hacé clic para seleccionar · JPG, PNG, WebP · Máx 10MB</div>
+    </div>
+  </div>
+
+  <!-- Camera section -->
+  <div id="section-camera" class="hidden">
+    <div id="camera-container">
+      <video id="camera-preview" autoplay muted playsinline></video>
+      <div class="face-guide"></div>
+      <div class="camera-overlay">
+        <button class="btn btn-primary" id="capture-btn" onclick="capturePhoto()" style="width:64px;height:64px;border-radius:50%;font-size:1.5rem;padding:0;">📸</button>
+      </div>
+    </div>
+    <canvas id="capture-canvas" class="hidden"></canvas>
+    <button class="btn btn-ghost btn-sm mt-4" onclick="stopCamera()">← Volver a subir foto</button>
+  </div>
+
+  <!-- Image preview -->
+  <div id="preview-section" class="hidden" style="margin-top:var(--space-6);">
+    <div style="max-width:400px;margin:0 auto;">
+      <div style="position:relative;border-radius:var(--radius-xl);overflow:hidden;background:#000;aspect-ratio:3/4;">
+        <img id="image-preview" src="" alt="Tu foto" style="width:100%;height:100%;object-fit:cover;">
+        <div style="position:absolute;top:var(--space-3);right:var(--space-3);">
+          <button class="btn btn-danger btn-sm" onclick="clearPhoto()" style="background:rgba(0,0,0,0.6);border-color:rgba(255,255,255,0.2);">✕ Cambiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Consent -->
+    <div class="card mt-6" style="background:rgba(124,58,237,0.05);border-color:rgba(124,58,237,0.2);">
+      <div style="display:flex;gap:var(--space-4);align-items:flex-start;">
+        <div style="padding-top:2px;">
+          <input type="checkbox" id="consent" style="width:18px;height:18px;cursor:pointer;accent-color:var(--red-mid);">
+        </div>
+        <div>
+          <label for="consent" style="font-weight:600;font-size:0.9rem;cursor:pointer;color:var(--text-primary);">
+            Autorizo el análisis de mi imagen con IA
+          </label>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-top:var(--space-1);">
+            Tu imagen se procesa únicamente para determinar la forma de tu rostro. No se usa para entrenar modelos ni se comparte con terceros. Podés eliminarla en cualquier momento desde tu perfil.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-xl btn-full mt-6" id="analyze-btn" onclick="startAnalysis()" disabled>
+      🔍 Analizar mi rostro →
+    </button>
+    <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-top:var(--space-3);">
+      El análisis tarda entre 10 y 30 segundos
+    </p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedImageBlob = null;
+let stream = null;
+
+// Auth + profile guard
+(async () => {
+  await requireProfile();
+})();
+
+// Consent checkbox
+document.getElementById('consent').addEventListener('change', (e) => {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = !e.target.checked;
+});
+
+// ── Mode switching ───────────────────────────────────────────
+function setMode(mode) {
+  const btnUpload = document.getElementById('btn-mode-upload');
+  const btnCamera = document.getElementById('btn-mode-camera');
+  const secUpload = document.getElementById('section-upload');
+  const secCamera = document.getElementById('section-camera');
+
+  if (mode === 'upload') {
+    btnUpload.className = 'btn btn-primary';
+    btnCamera.className = 'btn btn-outline';
+    secUpload.classList.remove('hidden');
+    secCamera.classList.add('hidden');
+    stopCamera();
+  } else {
+    btnCamera.className = 'btn btn-primary';
+    btnUpload.className = 'btn btn-outline';
+    secCamera.classList.remove('hidden');
+    secUpload.classList.add('hidden');
+    startCamera();
+  }
+}
+
+// ── File upload ──────────────────────────────────────────────
+const uploadZone = document.getElementById('upload-zone');
+
+uploadZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadZone.classList.add('drag-over');
+});
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+
+function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast('Error', 'Por favor seleccioná una imagen (JPG, PNG o WebP).', 'error');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('Error', 'La imagen no puede superar los 10MB.', 'error');
+    return;
+  }
+  selectedImageBlob = file;
+  showPreview(URL.createObjectURL(file));
+}
+
+// ── Camera ───────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 720 }, height: { ideal: 960 }, facingMode: 'user' }
+    });
+    document.getElementById('camera-preview').srcObject = stream;
+  } catch (err) {
+    showToast('Error de cámara', 'No se pudo acceder a la cámara. Usá la opción de subir foto.', 'error');
+    setMode('upload');
+  }
+}
+
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camera-preview');
+  const canvas = document.getElementById('capture-canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  canvas.toBlob((blob) => {
+    selectedImageBlob = blob;
+    showPreview(canvas.toDataURL('image/jpeg', 0.92));
+    stopCamera();
+    setMode('upload');
+  }, 'image/jpeg', 0.92);
+}
+
+// ── Preview ──────────────────────────────────────────────────
+function showPreview(src) {
+  document.getElementById('image-preview').src = src;
+  document.getElementById('preview-section').classList.remove('hidden');
+  document.getElementById('section-upload').classList.add('hidden');
+  document.getElementById('section-camera').classList.add('hidden');
+  document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function clearPhoto() {
+  selectedImageBlob = null;
+  document.getElementById('preview-section').classList.add('hidden');
+  document.getElementById('section-upload').classList.remove('hidden');
+  document.getElementById('file-input').value = '';
+  document.getElementById('consent').checked = false;
+  document.getElementById('analyze-btn').disabled = true;
+}
+
+// ── Analysis ─────────────────────────────────────────────────
+async function startAnalysis() {
+  if (!selectedImageBlob) {
+    showToast('Error', 'Primero seleccioná o tomá una foto.', 'error');
+    return;
+  }
+  if (!document.getElementById('consent').checked) {
+    showToast('Error', 'Necesitás dar tu consentimiento para el análisis.', 'error');
+    return;
+  }
+
+  showLoading('Analizando tu rostro con IA...');
+
+  try {
+    const session = await getSession();
+    if (!session) { window.location.href = '/login'; return; }
+
+    // Upload to Supabase Storage
+    const fileName = `face_${Date.now()}.jpg`;
+    const filePath = `${session.user.id}/${fileName}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('face-images')
+      .upload(filePath, selectedImageBlob, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+
+    if (uploadError) throw new Error(`Error al subir imagen: ${uploadError.message}`);
+
+    // Get signed URL (1 hour)
+    const { data: signedData, error: signError } = await supabase.storage
+      .from('face-images')
+      .createSignedUrl(filePath, 3600);
+
+    if (signError) throw new Error(`Error al obtener URL: ${signError.message}`);
+
+    // Analyze with Claude
+    const result = await apiFetch('/api/analyze-face', {
+      method: 'POST',
+      body: JSON.stringify({ image_url: signedData.signedUrl }),
+    });
+
+    if (!result.success) throw new Error(result.error || 'Error en el análisis');
+
+    // Store results in sessionStorage and redirect
+    sessionStorage.setItem('analysis_result', JSON.stringify(result.data));
+    const analysisId = result.data.analysis_id || 'local';
+    window.location.href = `/results/${analysisId}`;
+
+  } catch (err) {
+    hideLoading();
+    showToast('Error en el análisis', err.message, 'error', 6000);
+  }
+}
+</script>
+{% endblock %}

@@ -1494,13 +1494,55 @@ select:-webkit-autofill {
   gap: var(--space-4);
 }
 
+/* ─── Page-level spacing helpers ─────────────────────────── */
+.pt-12 { padding-top: var(--space-12); }
+.pb-16 { padding-bottom: var(--space-16); }
+
+/* Hero vertical breathing room */
+.hero > .container {
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+
+/* CTA section (replaces inline style on index.html section) */
+.section-cta {
+  padding: var(--space-16) 0;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+}
+
+/* Analyze page: mode toggle buttons row */
+.analyze-mode-btns {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+/* Feedback results: bottom action buttons */
+.feedback-actions {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+}
+
+/* Modal score breakdown grid (results page, created in JS) */
+.modal-scores-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
 /* ─── Responsive — tablet (≤ 768 px) ────────────────────── */
 @media (max-width: 768px) {
   :root { --nav-height: 60px; }
 
   /* ── Navbar ── */
-  .navbar-nav { display: none; }
-  .navbar-toggle { display: flex; }
+  .navbar                 { padding: 0 var(--space-4); }
+  .navbar-nav             { display: none; }
+  .navbar-toggle          { display: flex; }
+  .navbar-username        { max-width: 80px; }
 
   .navbar-nav.open {
     display: flex;
@@ -1526,6 +1568,10 @@ select:-webkit-autofill {
     min-width: 180px !important;
   }
 
+  /* ── Page spacing ── */
+  .pt-12                  { padding-top: var(--space-8); }
+  .pb-16                  { padding-bottom: var(--space-10); }
+
   /* ── Grid layouts ── */
   .col-8, .col-4, .col-6 { grid-column: span 12; }
   #main-grid              { grid-template-columns: 1fr; }
@@ -1533,13 +1579,16 @@ select:-webkit-autofill {
   .form-grid-2col         { grid-template-columns: 1fr; }
 
   /* ── Hero ── */
+  .hero > .container      { padding-top: var(--space-6); padding-bottom: var(--space-6); }
   .hero-title             { font-size: 2.25rem; }
-  .hero-description       { font-size: 1rem; }
-  .hero-actions           { flex-direction: column; }
-  .hero-actions .btn      { justify-content: center; }
-  .hero-features          { flex-direction: column; gap: var(--space-3); }
+  .hero-description       { font-size: 1rem; margin-bottom: var(--space-6); }
+  .hero-features          { flex-direction: column; gap: var(--space-3); margin-top: var(--space-8); }
+  .hero-actions           { flex-direction: column; align-items: stretch; }
+  .hero-actions .btn      { justify-content: center; text-align: center; }
 
-  /* ── Landing ── */
+  /* ── Landing sections ── */
+  .features-section       { padding: var(--space-10) 0; }
+  .section-cta            { padding: var(--space-10) 0; }
   .features-grid          { grid-template-columns: 1fr; }
   .steps-how              { grid-template-columns: 1fr 1fr; }
   .footer-inner           { flex-direction: column; align-items: center; text-align: center; }
@@ -1547,7 +1596,7 @@ select:-webkit-autofill {
   /* ── Cards ── */
   .card-recommendation    { padding: var(--space-5); }
 
-  /* Rec card: stack score numbers below header on narrow screens */
+  /* Rec card: stack score numbers below title */
   .rec-card-top           { flex-direction: column !important; }
   .rec-score-col {
     flex-direction: row !important;
@@ -1564,6 +1613,13 @@ select:-webkit-autofill {
   .results-header         { flex-direction: column; }
   .results-actions        { flex-direction: column; align-items: stretch; }
   .results-actions .btn   { justify-content: center; text-align: center; }
+
+  /* ── Feedback actions ── */
+  .feedback-actions       { flex-direction: column; align-items: stretch; }
+  .feedback-actions .btn  { width: 100%; justify-content: center; text-align: center; }
+
+  /* ── Analyze mode buttons: equal width ── */
+  .analyze-mode-btns .btn { flex: 1; }
 
   /* ── Modal: bottom-sheet on mobile ── */
   #modal-overlay {
@@ -1601,8 +1657,16 @@ select:-webkit-autofill {
   /* ── Container ── */
   .container, .container-sm, .container-xs { padding: 0 var(--space-4); }
 
+  /* ── Page spacing ── */
+  .pt-12                  { padding-top: var(--space-6); }
+  .pb-16                  { padding-bottom: var(--space-8); }
+
   /* ── Dashboard stats: 1 col ── */
   #stats-row              { grid-template-columns: 1fr !important; }
+
+  /* ── Stat cards: compact ── */
+  .stat-card              { padding: var(--space-4); }
+  .stat-value             { font-size: 1.4rem; }
 
   /* ── Cards: tighter padding ── */
   .card                   { padding: var(--space-4); }
@@ -1624,17 +1688,29 @@ select:-webkit-autofill {
   /* ── Landing: how it works → 1 col ── */
   .steps-how              { grid-template-columns: 1fr; }
 
+  /* ── Landing section padding ── */
+  .features-section       { padding: var(--space-8) 0; }
+  .section-cta            { padding: var(--space-8) 0; }
+
   /* ── Hero features: 2-col mini-grid ── */
   .hero-features {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-3);
-    margin-top: var(--space-8);
+    margin-top: var(--space-6);
   }
   .hero-feature           { font-size: 0.8rem; }
+  .hero-description       { margin-bottom: var(--space-5); }
 
   /* ── Feedback: 1 col score grid ── */
   .feedback-score-grid    { grid-template-columns: 1fr; }
+
+  /* ── Modal scores: single column ── */
+  .modal-scores-grid      { grid-template-columns: 1fr !important; }
+
+  /* ── Analyze mode buttons: full-width column ── */
+  .analyze-mode-btns      { flex-direction: column; }
+  .analyze-mode-btns .btn { width: 100%; flex: none; }
 
   /* ── Upload zone: compact ── */
   .upload-zone            { padding: var(--space-8) var(--space-4); }

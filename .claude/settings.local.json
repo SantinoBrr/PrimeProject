@@ -22,7 +22,9 @@
       "Bash(git push *)",
       "mcp__claude_ai_Supabase__get_logs",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\santi\\\\Desktop\\\\app-prime\\\\PrimeProject\" -Recurse -Force)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(python -c \"from app import app; print\\('OK'\\)\")",
+      "Bash(python3 -c \"from app import app; print\\('OK'\\)\")"
     ]
   }
 }

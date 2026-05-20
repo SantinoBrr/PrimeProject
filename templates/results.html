@@ -2,7 +2,7 @@
 {% block title %}Tus Recomendaciones — StyleSense{% endblock %}
 
 {% block content %}
-<div class="container" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
+<div class="container pt-12 pb-16">
 
   <!-- Loading state -->
   <div id="loading-state" class="text-center" style="padding:var(--space-16) 0;">
@@ -334,7 +334,7 @@ function openRecModal(recOrIndex) {
       <button onclick="closeModal()" class="btn btn-ghost btn-icon" style="font-size:1.25rem;color:var(--text-muted);">✕</button>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-6);">
+    <div class="modal-scores-grid">
       <div class="feedback-score-item">
         <div class="label">Compatibilidad</div>
         <div class="value" style="color:var(--success);">${rec.suitabilityScore || '—'}</div>

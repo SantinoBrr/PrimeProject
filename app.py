@@ -37,17 +37,29 @@ def _get_jwks_client() -> PyJWKClient:
         )
     return _jwks_client
 
-print(f"[Supabase] URL={'SET' if SUPABASE_URL else 'MISSING'} | SERVICE_KEY={'SET' if SUPABASE_SERVICE_KEY else 'MISSING'} | ANON_KEY={'SET' if SUPABASE_ANON_KEY else 'MISSING'}")
+def _key_prefix(k: str) -> str:
+    return (k[:18] + "...") if len(k) > 18 else ("(vacío)" if not k else k)
+
+print(f"[Supabase] URL={SUPABASE_URL or 'MISSING'}")
+print(f"[Supabase] SERVICE_KEY prefix={_key_prefix(SUPABASE_SERVICE_KEY)}")
+print(f"[Supabase] ANON_KEY    prefix={_key_prefix(SUPABASE_ANON_KEY)}")
+
+_supabase_init_error: str | None = None
 try:
     if SUPABASE_URL and SUPABASE_SERVICE_KEY:
         supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        print(f"[Supabase] OK → {SUPABASE_URL}")
+        print(f"[Supabase] Cliente OK")
     else:
         supabase = None
-        print("[Supabase] FALLO: faltan variables de entorno")
+        print("[Supabase] FALLO: SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no están configurados")
 except Exception as e:
     supabase = None
-    print(f"[Supabase] EXCEPCION: {type(e).__name__}: {e}")
+    _supabase_init_error = str(e)
+    print(f"[Supabase] FALLO al inicializar: {type(e).__name__}: {e}")
+    if "Invalid API key" in str(e) or "invalid" in str(e).lower():
+        print("[Supabase] DIAGNÓSTICO: La key debe ser formato JWT (empieza con eyJ...).")
+        print("[Supabase]             Las keys sb_secret_... / sb_publishable_... NO son compatibles.")
+        print("[Supabase]             Usá las Legacy API Keys: Supabase → Settings → API → Legacy API Keys.")
 
 # Import servicios de Claude
 from api.claude_service import analyze_face, analyze_haircut_result

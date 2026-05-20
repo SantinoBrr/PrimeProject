@@ -1,6 +1,115 @@
 {% extends "base.html" %}
 {% block title %}Analizar Rostro — StyleSense{% endblock %}
 
+{% block head %}
+<style>
+#camera-container {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 3/4;
+}
+#camera-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+#face-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.face-status-badge {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  white-space: nowrap;
+  z-index: 10;
+  transition: background 0.3s, border-color 0.3s, color 0.3s;
+  border: 1px solid transparent;
+}
+.face-status-loading  { background: rgba(10,10,25,0.85); border-color: rgba(100,100,160,0.4); color: var(--text-dim); }
+.face-status-scanning { background: rgba(220,38,38,0.18); border-color: rgba(220,38,38,0.55); color: var(--red-bright); }
+.face-status-detected { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.55); color: #4ade80; }
+.face-status-noface   { background: rgba(245,158,11,0.18); border-color: rgba(245,158,11,0.55); color: #fbbf24; }
+.face-status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: face-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes face-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.35; transform: scale(0.65); }
+}
+#model-loading-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  transition: opacity 0.5s;
+}
+#model-loading-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red-dark, #991b1b), var(--red-bright, #f87171));
+  width: 0%;
+  transition: width 0.45s ease;
+}
+.face-metrics-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  margin: var(--space-4) auto 0;
+  max-width: 480px;
+}
+.face-metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-2);
+  text-align: center;
+  transition: border-color 0.3s, background 0.3s;
+}
+.face-metric-card.active {
+  border-color: rgba(220,38,38,0.4);
+  background: rgba(220,38,38,0.04);
+}
+.face-metric-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.face-metric-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+@media (max-width: 480px) {
+  .face-metrics-panel { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-sm" style="padding-top:var(--space-12);padding-bottom:var(--space-16);">
 
@@ -35,7 +144,7 @@
       📁 Subir foto
     </button>
     <button class="btn btn-outline" id="btn-mode-camera" onclick="setMode('camera')">
-      📷 Usar cámara
+      📡 Analizar en vivo
     </button>
   </div>
 
@@ -53,13 +162,43 @@
   <div id="section-camera" class="hidden">
     <div id="camera-container">
       <video id="camera-preview" autoplay muted playsinline></video>
-      <div class="face-guide"></div>
+      <canvas id="face-overlay"></canvas>
+      <div id="face-status-badge" class="face-status-badge face-status-loading">
+        <span class="face-status-dot"></span>
+        <span id="face-status-text">Iniciando cámara...</span>
+      </div>
       <div class="camera-overlay">
-        <button class="btn btn-primary" id="capture-btn" onclick="capturePhoto()" style="width:64px;height:64px;border-radius:50%;font-size:1.5rem;padding:0;">📸</button>
+        <button class="btn btn-primary" id="capture-btn" onclick="capturePhoto()"
+                style="width:72px;height:72px;border-radius:50%;font-size:1.5rem;padding:0;opacity:0.4;transition:opacity 0.3s;"
+                disabled>📸</button>
+      </div>
+      <div id="model-loading-bar"><div id="model-loading-fill"></div></div>
+    </div>
+
+    <!-- Live face metrics -->
+    <div class="face-metrics-panel" id="face-metrics">
+      <div class="face-metric-card">
+        <div class="face-metric-label">Forma estimada</div>
+        <div class="face-metric-value" id="metric-shape">—</div>
+      </div>
+      <div class="face-metric-card">
+        <div class="face-metric-label">Proporción</div>
+        <div class="face-metric-value" id="metric-ratio">—</div>
+      </div>
+      <div class="face-metric-card">
+        <div class="face-metric-label">Ancho rel.</div>
+        <div class="face-metric-value" id="metric-width">—</div>
+      </div>
+      <div class="face-metric-card">
+        <div class="face-metric-label">Detección</div>
+        <div class="face-metric-value" id="metric-conf">—</div>
       </div>
     </div>
+
     <canvas id="capture-canvas" class="hidden"></canvas>
-    <button class="btn btn-ghost btn-sm mt-4" onclick="stopCamera()">← Volver a subir foto</button>
+    <div style="text-align:center;margin-top:var(--space-4);">
+      <button class="btn btn-ghost btn-sm" onclick="setMode('upload')">← Volver a subir foto</button>
+    </div>
   </div>
 
   <!-- Image preview -->
@@ -172,13 +311,235 @@ function processFile(file) {
   showPreview(URL.createObjectURL(file));
 }
 
+// ── Real-time face detection ─────────────────────────────────
+let faceDetector = null;
+let detectionLoopId = null;
+let scanLineY = 0;
+let scanDir = 1;
+let stableFrames = 0;
+const STABLE_THRESHOLD = 6;
+
+function loadScriptDynamic(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Script load failed: ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadFaceDetector() {
+  setFaceStatus('loading', 'Cargando detector IA...');
+  setLoadingBar(15);
+  try {
+    await loadScriptDynamic('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
+    setLoadingBar(55);
+    await loadScriptDynamic('https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.1.0/dist/blazeface.min.js');
+    setLoadingBar(80);
+    faceDetector = await blazeface.load();
+    setLoadingBar(100);
+    setTimeout(() => { const b = document.getElementById('model-loading-bar'); if (b) b.style.opacity = '0'; }, 600);
+    setFaceStatus('scanning', 'Buscando rostro...');
+    startDetectionLoop();
+  } catch (err) {
+    console.warn('BlazeFace load failed:', err);
+    setFaceStatus('noface', 'Detector no disponible — usá subir foto');
+    const b = document.getElementById('model-loading-bar'); if (b) b.style.opacity = '0';
+  }
+}
+
+function startDetectionLoop() {
+  const video = document.getElementById('camera-preview');
+  const canvas = document.getElementById('face-overlay');
+  async function loop() {
+    if (!stream) { detectionLoopId = null; return; }
+    const rect = video.getBoundingClientRect();
+    if (rect.width > 0 && canvas.width !== Math.round(rect.width)) {
+      canvas.width = Math.round(rect.width);
+      canvas.height = Math.round(rect.height);
+    }
+    if (faceDetector && video.readyState >= 2 && video.videoWidth > 0) {
+      try {
+        const preds = await faceDetector.estimateFaces(video, false);
+        drawFaceOverlay(canvas, video, preds);
+        updateFaceMetrics(canvas, video, preds);
+      } catch { /* silent */ }
+    } else if (!faceDetector && canvas.width > 0) {
+      drawIdleGrid(canvas.getContext('2d'), canvas.width, canvas.height);
+    }
+    detectionLoopId = requestAnimationFrame(loop);
+  }
+  detectionLoopId = requestAnimationFrame(loop);
+}
+
+function videoToCanvas(video, canvas, vx, vy) {
+  const vW = video.videoWidth || 1, vH = video.videoHeight || 1;
+  const cW = canvas.width, cH = canvas.height;
+  const scale = Math.max(cW / vW, cH / vH);
+  const ox = (cW - vW * scale) / 2, oy = (cH - vH * scale) / 2;
+  return { x: vx * scale + ox, y: vy * scale + oy };
+}
+
+function drawFaceOverlay(canvas, video, preds) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!preds || preds.length === 0) {
+    drawIdleGrid(ctx, canvas.width, canvas.height);
+    stableFrames = Math.max(0, stableFrames - 1);
+    if (stableFrames === 0) {
+      setFaceStatus('noface', 'Posicioná tu rostro en el marco');
+      const btn = document.getElementById('capture-btn');
+      btn.disabled = true; btn.style.opacity = '0.4';
+    }
+    return;
+  }
+  const face = preds[0];
+  const [x1, y1] = face.topLeft, [x2, y2] = face.bottomRight;
+  const tl = videoToCanvas(video, canvas, x1, y1);
+  const br = videoToCanvas(video, canvas, x2, y2);
+  const fw = br.x - tl.x, fh = br.y - tl.y;
+  drawFaceZones(ctx, tl.x, tl.y, fw, fh);
+  drawCornerBox(ctx, tl.x, tl.y, fw, fh);
+  if (face.landmarks) drawLandmarks(ctx, video, canvas, face.landmarks);
+  drawScanLine(ctx, tl.x, tl.y, fw, fh);
+  stableFrames = Math.min(stableFrames + 1, 30);
+  if (stableFrames >= STABLE_THRESHOLD) {
+    setFaceStatus('detected', 'Listo — presioná 📸 para capturar');
+    const btn = document.getElementById('capture-btn');
+    btn.disabled = false; btn.style.opacity = '1';
+  } else {
+    setFaceStatus('scanning', 'Analizando rostro...');
+  }
+}
+
+function drawIdleGrid(ctx, W, H) {
+  if (!W || !H) return;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(220,38,38,0.1)'; ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y <= H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.beginPath(); ctx.ellipse(W / 2, H / 2, W * 0.33, H * 0.42, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(220,38,38,0.28)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+}
+
+function drawFaceZones(ctx, fx, fy, fw, fh) {
+  const zones = [
+    { label: 'FRENTE',    color: 'rgba(59,130,246,0.1)',  t: 0,    h: 0.28 },
+    { label: 'OJOS',      color: 'rgba(124,58,237,0.1)',  t: 0.28, h: 0.18 },
+    { label: 'NARIZ',     color: 'rgba(220,38,38,0.08)',  t: 0.46, h: 0.22 },
+    { label: 'MANDÍBULA', color: 'rgba(34,197,94,0.08)',  t: 0.68, h: 0.32 },
+  ];
+  ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
+  zones.forEach((z, i) => {
+    const zy = fy + fh * z.t, zh = fh * z.h;
+    ctx.fillStyle = z.color; ctx.fillRect(fx, zy, fw, zh);
+    if (i > 0) {
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]); ctx.moveTo(fx, zy); ctx.lineTo(fx + fw, zy); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.32)'; ctx.fillText(z.label, fx + 6, zy + 12);
+  });
+}
+
+function drawCornerBox(ctx, x, y, w, h) {
+  const arm = Math.min(w, h) * 0.16, r = 5;
+  ctx.strokeStyle = 'rgba(220,38,38,0.9)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y + arm); ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.lineTo(x + arm, y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + w - arm, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r); ctx.lineTo(x + w, y + arm); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y + h - arm); ctx.lineTo(x, y + h - r); ctx.arcTo(x, y + h, x + r, y + h, r); ctx.lineTo(x + arm, y + h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + w - arm, y + h); ctx.lineTo(x + w - r, y + h); ctx.arcTo(x + w, y + h, x + w, y + h - r, r); ctx.lineTo(x + w, y + h - arm); ctx.stroke();
+}
+
+function drawLandmarks(ctx, video, canvas, landmarks) {
+  const colors = ['#60a5fa', '#60a5fa', '#fbbf24', '#f87171', '#a78bfa', '#a78bfa'];
+  landmarks.forEach(([lx, ly], i) => {
+    const p = videoToCanvas(video, canvas, lx, ly), c = colors[i] || '#fff';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2); ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill();
+  });
+}
+
+function drawScanLine(ctx, fx, fy, fw, fh) {
+  scanLineY += scanDir * 1.8;
+  if (scanLineY >= fh) { scanLineY = fh; scanDir = -1; }
+  if (scanLineY <= 0)  { scanLineY = 0;  scanDir = 1;  }
+  const ly = fy + scanLineY;
+  const g = ctx.createLinearGradient(fx, ly, fx + fw, ly);
+  g.addColorStop(0,   'rgba(220,38,38,0)');
+  g.addColorStop(0.2, 'rgba(220,38,38,0.75)');
+  g.addColorStop(0.8, 'rgba(220,38,38,0.75)');
+  g.addColorStop(1,   'rgba(220,38,38,0)');
+  ctx.lineWidth = 9; ctx.strokeStyle = 'rgba(220,38,38,0.1)';
+  ctx.beginPath(); ctx.moveTo(fx, ly); ctx.lineTo(fx + fw, ly); ctx.stroke();
+  ctx.lineWidth = 2; ctx.strokeStyle = g;
+  ctx.beginPath(); ctx.moveTo(fx, ly); ctx.lineTo(fx + fw, ly); ctx.stroke();
+}
+
+function updateFaceMetrics(canvas, video, preds) {
+  const shapeEl = document.getElementById('metric-shape');
+  const ratioEl = document.getElementById('metric-ratio');
+  const widthEl = document.getElementById('metric-width');
+  const confEl  = document.getElementById('metric-conf');
+  const cards   = document.querySelectorAll('.face-metric-card');
+  if (!preds || preds.length === 0) {
+    [shapeEl, ratioEl, widthEl, confEl].forEach(e => { if (e) e.textContent = '—'; });
+    cards.forEach(c => c.classList.remove('active'));
+    return;
+  }
+  const face = preds[0];
+  const [x1, y1] = face.topLeft, [x2, y2] = face.bottomRight;
+  const fw = x2 - x1, fh = y2 - y1, ratio = fw / fh;
+  let shape;
+  if      (ratio < 0.68) shape = 'Oblongo';
+  else if (ratio < 0.78) shape = 'Ovalado';
+  else if (ratio < 0.88) shape = 'Corazón';
+  else if (ratio < 0.96) shape = 'Cuadrado';
+  else                   shape = 'Redondo';
+  const widthPct = Math.round((fw / (video.videoWidth || 1)) * 100);
+  const conf = face.probability ? Math.round(face.probability[0] * 100) : 99;
+  if (shapeEl) shapeEl.textContent = shape;
+  if (ratioEl) ratioEl.textContent = ratio.toFixed(2);
+  if (widthEl) widthEl.textContent = widthPct + '%';
+  if (confEl)  confEl.textContent  = conf + '%';
+  cards.forEach(c => c.classList.add('active'));
+}
+
+function setFaceStatus(type, text) {
+  const badge = document.getElementById('face-status-badge');
+  const textEl = document.getElementById('face-status-text');
+  if (!badge || !textEl) return;
+  badge.className = `face-status-badge face-status-${type}`;
+  textEl.textContent = text;
+}
+
+function setLoadingBar(pct) {
+  const fill = document.getElementById('model-loading-fill');
+  if (fill) fill.style.width = pct + '%';
+}
+
 // ── Camera ───────────────────────────────────────────────────
 async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 720 }, height: { ideal: 960 }, facingMode: 'user' }
     });
-    document.getElementById('camera-preview').srcObject = stream;
+    const video = document.getElementById('camera-preview');
+    video.srcObject = stream;
+    stableFrames = 0;
+    const btn = document.getElementById('capture-btn');
+    btn.disabled = true; btn.style.opacity = '0.4';
+    setFaceStatus('loading', 'Iniciando cámara...');
+    document.getElementById('model-loading-bar').style.opacity = '1';
+    video.addEventListener('loadedmetadata', () => {
+      if (faceDetector) {
+        document.getElementById('model-loading-bar').style.opacity = '0';
+        setFaceStatus('scanning', 'Buscando rostro...');
+        startDetectionLoop();
+      } else {
+        loadFaceDetector();
+      }
+    }, { once: true });
   } catch (err) {
     showToast('Error de cámara', 'No se pudo acceder a la cámara. Usá la opción de subir foto.', 'error');
     setMode('upload');
@@ -186,10 +547,11 @@ async function startCamera() {
 }
 
 function stopCamera() {
-  if (stream) {
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-  }
+  if (detectionLoopId) { cancelAnimationFrame(detectionLoopId); detectionLoopId = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  stableFrames = 0;
+  const overlay = document.getElementById('face-overlay');
+  if (overlay) overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
 }
 
 function capturePhoto() {
@@ -198,12 +560,11 @@ function capturePhoto() {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext('2d').drawImage(video, 0, 0);
-
   canvas.toBlob((blob) => {
     selectedImageBlob = blob;
-    showPreview(canvas.toDataURL('image/jpeg', 0.92));
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     stopCamera();
-    setMode('upload');
+    showPreview(dataUrl);
   }, 'image/jpeg', 0.92);
 }
 

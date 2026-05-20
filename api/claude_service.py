@@ -25,7 +25,7 @@ def _get_model(max_tokens: int = 4096):
         _configured = True
 
     return genai.GenerativeModel(
-        "gemini-1.5-flash",
+        "gemini-2.0-flash",
         generation_config=genai.GenerationConfig(
             response_mime_type="application/json",
             max_output_tokens=max_tokens,

@@ -356,7 +356,7 @@ function renderFeedback(data) {
     const el = document.createElement('div');
     el.className = 'positive-item';
     el.style.fontSize = '0.9rem';
-    el.innerHTML = `<span style="color:var(--success);flex-shrink:0;font-weight:700;">✓</span><span>${item}</span>`;
+    el.innerHTML = `<span style="color:var(--success);flex-shrink:0;font-weight:700;margin-top:1px;">✓</span><span>${item}</span>`;
     workedEl.appendChild(el);
   });
 
@@ -408,7 +408,10 @@ function copyNextAppointment() {
 
 function resetFeedback() {
   clearResult();
+  document.getElementById('haircut-name').value = '';
+  document.getElementById('analysis-select').value = '';
   document.getElementById('feedback-results').classList.add('hidden');
+  document.getElementById('feedback-error').classList.add('hidden');
   document.getElementById('feedback-btn').textContent = '🔍 Analizar mi corte →';
   document.getElementById('feedback-btn').className = 'btn btn-primary btn-xl btn-full';
   document.getElementById('feedback-btn').disabled = false;

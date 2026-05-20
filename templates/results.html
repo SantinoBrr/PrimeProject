@@ -15,8 +15,8 @@
 
     <!-- Header -->
     <div style="margin-bottom:var(--space-10);">
-      <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);">
-        ✦ Análisis completado · Mayo 2026
+      <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);" id="analysis-date-badge">
+        ✦ Análisis completado
       </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4);">
         <div>
@@ -105,6 +105,7 @@
 <script>
 const analysisId = "{{ analysis_id }}";
 let analysisData = null;
+window._currentRecs = [];
 
 (async () => {
   await requireAuth();
@@ -154,6 +155,17 @@ function renderResults(data) {
   document.getElementById('loading-state').classList.add('hidden');
   document.getElementById('results-content').classList.remove('hidden');
 
+  // Dynamic date badge
+  const dateBadge = document.getElementById('analysis-date-badge');
+  if (dateBadge) {
+    const now = new Date();
+    const monthLabel = now.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    dateBadge.textContent = `✦ Análisis completado · ${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}`;
+  }
+
+  // Store recs globally for safe modal access
+  window._currentRecs = data.recommendations || [];
+
   // Face shape
   document.getElementById('face-shape').textContent = capitalize(data.faceShape || 'No detectado');
   document.getElementById('face-confidence').textContent = data.faceShapeConfidence ? `Confianza: ${data.faceShapeConfidence}%` : '';
@@ -183,6 +195,13 @@ function renderResults(data) {
   (data.recommendations || []).forEach((rec, i) => {
     const card = createRecommendationCard(rec, i);
     recList.appendChild(card);
+    // Trigger score bar width transition after DOM insertion
+    const fill = card.querySelector('.score-bar-fill');
+    if (fill) {
+      requestAnimationFrame(() => {
+        fill.style.width = `${((rec.suitabilityScore || 0) / 10 * 100)}%`;
+      });
+    }
   });
 
   // Cuts to avoid
@@ -208,9 +227,8 @@ function renderResults(data) {
 
   tips.forEach((tip, i) => {
     const el = document.createElement('div');
-    el.className = 'positive-item';
-    el.style.cssText = 'font-size:0.9rem;color:var(--text-secondary);';
-    el.innerHTML = `<span style="color:var(--blue-mid);flex-shrink:0;font-weight:700;">→</span><span>${tip}</span>`;
+    el.className = 'tip-item';
+    el.innerHTML = `<span style="color:var(--blue-mid);flex-shrink:0;font-weight:700;margin-top:1px;">→</span><span>${tip}</span>`;
     tipsList.appendChild(el);
   });
 
@@ -219,17 +237,18 @@ function renderResults(data) {
 }
 
 function createRecommendationCard(rec, index) {
-  const rankBadgeClass = ['badge-rank-1', 'badge-rank-2', 'badge-rank-3', 'badge-gray', 'badge-gray'][index] || 'badge-gray';
+  const rankNum = rec.rank || index + 1;
+  const rankBadgeClass = rankNum <= 5 ? `badge-rank-${rankNum}` : 'badge-gray';
   const suitColor = rec.suitabilityScore >= 9 ? 'var(--success)' : rec.suitabilityScore >= 7.5 ? 'var(--warning)' : 'var(--text-secondary)';
   const trendColor = rec.trendScore >= 9 ? 'var(--red-bright)' : rec.trendScore >= 7.5 ? 'var(--warning)' : 'var(--text-secondary)';
 
   const card = document.createElement('div');
-  card.className = `card-recommendation rank-${rec.rank || index + 1}`;
+  card.className = `card-recommendation rank-${rankNum}`;
   card.innerHTML = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);">
       <div style="flex:1;">
         <div class="rec-rank-badge">
-          <span class="badge ${rankBadgeClass} badge-rank">${rec.rank || index + 1}</span>
+          <span class="badge ${rankBadgeClass} badge-rank">${rankNum}</span>
           <span class="badge badge-gray">${categoryLabel(rec.category)}</span>
           ${rec.maintenanceLevel ? `<span class="badge badge-${maintenanceColor(rec.maintenanceLevel)}">${rec.maintenanceLevel}</span>` : ''}
         </div>
@@ -250,7 +269,7 @@ function createRecommendationCard(rec, index) {
 
     <div style="margin-top:var(--space-4);">
       <div class="score-bar">
-        <div class="score-bar-fill" style="width:${((rec.suitabilityScore || 0) / 10 * 100)}%"></div>
+        <div class="score-bar-fill" style="width:0%"></div>
       </div>
     </div>
 
@@ -264,7 +283,7 @@ function createRecommendationCard(rec, index) {
         ${rec.difficultyToAchieve ? `<span class="badge badge-gray">${diffLabel(rec.difficultyToAchieve)}</span>` : ''}
         ${rec.budgetFriendly ? '<span class="badge badge-green">💰 Accesible</span>' : ''}
       </div>
-      <button class="btn btn-secondary btn-sm" onclick='openRecModal(${JSON.stringify(rec).replace(/'/g, "&apos;")})'>
+      <button class="btn btn-secondary btn-sm" data-rec-index="${index}" onclick="openRecModal(${index})">
         Ver detalle completo →
       </button>
     </div>
@@ -273,7 +292,13 @@ function createRecommendationCard(rec, index) {
   return card;
 }
 
-function openRecModal(rec) {
+let _modalRec = null;
+
+function openRecModal(recOrIndex) {
+  const rec = typeof recOrIndex === 'number' ? window._currentRecs[recOrIndex] : recOrIndex;
+  if (!rec) return;
+  _modalRec = rec;
+
   const modal = document.getElementById('modal-overlay');
   const body = document.getElementById('modal-body');
 
@@ -281,27 +306,30 @@ function openRecModal(rec) {
   const ytSearch = rec.youtubeQuery ? `https://www.youtube.com/results?search_query=${encodeURIComponent(rec.youtubeQuery)}` : null;
   const pinterestSearch = rec.imageSearchQuery ? `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(rec.imageSearchQuery)}` : null;
 
-  const stepsHtml = (rec.stylingSteps || []).map(s => `
-    <div class="styling-step" style="display:flex;gap:var(--space-3);align-items:flex-start;margin-bottom:var(--space-2);">
-      <div style="font-size:0.875rem;color:var(--text-secondary);">${s}</div>
-    </div>
-  `).join('');
+  const rankNum = rec.rank || 1;
+  const rankBadgeClass = rankNum <= 5 ? `badge-rank-${rankNum}` : 'badge-gray';
 
   const productsHtml = (rec.products || []).map(p => {
     const name = typeof p === 'string' ? p : p.name;
     const purpose = typeof p === 'object' ? p.purpose : '';
-    return `<div class="badge badge-gray">${name}${purpose ? ` <span style="font-weight:400;opacity:0.7">· ${purpose}</span>` : ''}</div>`;
+    return `<div class="badge badge-gray">${escHtml(name)}${purpose ? ` <span style="font-weight:400;opacity:0.7">· ${escHtml(purpose)}</span>` : ''}</div>`;
   }).join('');
+
+  const stepsFullHtml = (rec.stylingSteps || []).map(s => `
+    <div class="styling-step">
+      <div style="font-size:0.875rem;color:var(--text-secondary);">${escHtml(s)}</div>
+    </div>
+  `).join('');
 
   body.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-6);">
       <div>
         <div style="display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-2);">
-          <span class="badge badge-rank badge-rank-${rec.rank}" style="">#${rec.rank}</span>
-          <span class="badge badge-gray">${categoryLabel(rec.category)}</span>
+          <span class="badge badge-rank ${rankBadgeClass}">#${rankNum}</span>
+          <span class="badge badge-gray">${escHtml(categoryLabel(rec.category))}</span>
         </div>
-        <h2 style="font-size:1.5rem;">${rec.name}</h2>
-        ${rec.nameEn ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;font-style:italic;">${rec.nameEn}</div>` : ''}
+        <h2 style="font-size:1.5rem;">${escHtml(rec.name || '')}</h2>
+        ${rec.nameEn ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;font-style:italic;">${escHtml(rec.nameEn)}</div>` : ''}
       </div>
       <button onclick="closeModal()" class="btn btn-ghost btn-icon" style="font-size:1.25rem;color:var(--text-muted);">✕</button>
     </div>
@@ -319,33 +347,33 @@ function openRecModal(rec) {
 
     <div class="rec-section">
       <div class="rec-section-title">📋 Descripción</div>
-      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.description}</p>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${escHtml(rec.description || '')}</p>
     </div>
 
     <div class="rec-section">
       <div class="rec-section-title">🎯 Por qué es ideal para vos</div>
-      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.whySuitable || '—'}</p>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${escHtml(rec.whySuitable || '—')}</p>
     </div>
 
     ${rec.hairTypeNote ? `
     <div class="rec-section">
       <div class="rec-section-title">💇 Con tu tipo de cabello</div>
-      <p style="font-size:0.9rem;color:var(--text-secondary);">${rec.hairTypeNote}</p>
+      <p style="font-size:0.9rem;color:var(--text-secondary);">${escHtml(rec.hairTypeNote)}</p>
     </div>
     ` : ''}
 
-    ${stepsHtml ? `
+    ${stepsFullHtml ? `
     <div class="rec-section">
       <div class="rec-section-title">🪮 Cómo peinarlo — paso a paso</div>
-      <div class="styling-steps">${stepsHtml}</div>
+      <div class="styling-steps">${stepsFullHtml}</div>
     </div>
     ` : ''}
 
     ${rec.barberScript ? `
     <div class="rec-section">
       <div class="rec-section-title">💬 Qué decirle a tu barbero</div>
-      <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:0.875rem;color:var(--text-secondary);line-height:1.7;font-style:italic;">"${rec.barberScript}"</div>
-      <button onclick="copyText('${rec.barberScript.replace(/'/g, "\\'")}')" class="btn btn-ghost btn-sm mt-4">📋 Copiar texto</button>
+      <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4);font-size:0.875rem;color:var(--text-secondary);line-height:1.7;font-style:italic;">"${escHtml(rec.barberScript)}"</div>
+      <button id="copy-barber-btn" class="btn btn-ghost btn-sm mt-4">📋 Copiar texto</button>
     </div>
     ` : ''}
 
@@ -359,9 +387,9 @@ function openRecModal(rec) {
     <div class="rec-section">
       <div class="rec-section-title">🔍 Buscar referencias visuales</div>
       <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
-        ${googleSearch ? `<a href="${googleSearch}" target="_blank" class="btn btn-outline btn-sm">Google Imágenes 🔗</a>` : ''}
-        ${pinterestSearch ? `<a href="${pinterestSearch}" target="_blank" class="btn btn-outline btn-sm">Pinterest 🔗</a>` : ''}
-        ${ytSearch ? `<a href="${ytSearch}" target="_blank" class="btn btn-outline btn-sm">YouTube Tutorial 🔗</a>` : ''}
+        ${googleSearch ? `<a href="${googleSearch}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">Google Imágenes 🔗</a>` : ''}
+        ${pinterestSearch ? `<a href="${pinterestSearch}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">Pinterest 🔗</a>` : ''}
+        ${ytSearch ? `<a href="${ytSearch}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">YouTube Tutorial 🔗</a>` : ''}
       </div>
     </div>
 
@@ -370,6 +398,12 @@ function openRecModal(rec) {
       <button onclick="closeModal()" class="btn btn-outline btn-sm">← Volver</button>
     </div>
   `;
+
+  // Attach copy button event safely (no inline JS with user data)
+  const copyBtn = document.getElementById('copy-barber-btn');
+  if (copyBtn && rec.barberScript) {
+    copyBtn.addEventListener('click', () => copyText(rec.barberScript));
+  }
 
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
@@ -390,6 +424,16 @@ function copyText(text) {
 
 // ── Helpers ──────────────────────────────────────────────────
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 function categoryLabel(cat) {
   const labels = {

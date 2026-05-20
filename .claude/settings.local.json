@@ -20,7 +20,9 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "mcp__claude_ai_Supabase__get_logs"
+      "mcp__claude_ai_Supabase__get_logs",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\santi\\\\Desktop\\\\app-prime\\\\PrimeProject\" -Recurse -Force)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

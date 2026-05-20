@@ -15,9 +15,9 @@
 
   <!-- Stats row -->
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-4);margin-bottom:var(--space-8);" id="stats-row">
-    <div class="stat-card skeleton" style="height:80px;"></div>
-    <div class="stat-card skeleton" style="height:80px;"></div>
-    <div class="stat-card skeleton" style="height:80px;"></div>
+    <div id="stat-slot-analyses" class="stat-card skeleton" style="height:80px;"></div>
+    <div id="stat-slot-shape" class="stat-card skeleton" style="height:80px;"></div>
+    <div id="stat-slot-results" class="stat-card skeleton" style="height:80px;"></div>
   </div>
 
   <!-- Main grid -->
@@ -152,20 +152,29 @@ async function loadProfile(session) {
 }
 
 async function loadAnalyses() {
-  const statsRow = document.getElementById('stats-row');
   const analysesEl = document.getElementById('analyses-list');
+  const slotAnalyses = document.getElementById('stat-slot-analyses');
+  const slotShape = document.getElementById('stat-slot-shape');
 
   try {
     const data = await apiFetch('/api/analyses');
     const count = data.analyses?.length || 0;
 
-    statsRow.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-icon feature-icon-red">📊</div>
-        <div>
-          <div class="stat-value">${count}</div>
-          <div class="stat-label">Análisis realizados</div>
-        </div>
+    slotAnalyses.className = 'stat-card';
+    slotAnalyses.innerHTML = `
+      <div class="stat-icon feature-icon-red">📊</div>
+      <div>
+        <div class="stat-value">${count}</div>
+        <div class="stat-label">Análisis realizados</div>
+      </div>
+    `;
+
+    slotShape.className = 'stat-card';
+    slotShape.innerHTML = `
+      <div class="stat-icon feature-icon-blue">📅</div>
+      <div>
+        <div class="stat-value">${data.analyses?.[0]?.face_shape ? capitalize(data.analyses[0].face_shape) : '—'}</div>
+        <div class="stat-label">Último rostro</div>
       </div>
     `;
 
@@ -199,34 +208,26 @@ async function loadAnalyses() {
       analysesEl.appendChild(card);
     });
 
-    // Update stats
-    statsRow.innerHTML += `
-      <div class="stat-card">
-        <div class="stat-icon feature-icon-blue">📅</div>
-        <div>
-          <div class="stat-value">${data.analyses[0]?.face_shape ? capitalize(data.analyses[0].face_shape) : '—'}</div>
-          <div class="stat-label">Último rostro</div>
-        </div>
-      </div>
-    `;
-
   } catch {
     analysesEl.innerHTML = '<div style="color:var(--error);font-size:0.85rem;">Error cargando análisis.</div>';
+    slotAnalyses.className = 'stat-card';
+    slotAnalyses.innerHTML = '<div class="stat-icon feature-icon-red">📊</div><div><div class="stat-value">—</div><div class="stat-label">Análisis realizados</div></div>';
+    slotShape.className = 'stat-card';
+    slotShape.innerHTML = '<div class="stat-icon feature-icon-blue">📅</div><div><div class="stat-value">—</div><div class="stat-label">Último rostro</div></div>';
   }
 }
 
 async function loadResults() {
+  const slotResults = document.getElementById('stat-slot-results');
   try {
     const data = await apiFetch('/api/results');
     const count = data.results?.length || 0;
-    const statsRow = document.getElementById('stats-row');
-    statsRow.innerHTML += `
-      <div class="stat-card">
-        <div class="stat-icon feature-icon-purple">🏆</div>
-        <div>
-          <div class="stat-value">${count}</div>
-          <div class="stat-label">Cortes evaluados</div>
-        </div>
+    slotResults.className = 'stat-card';
+    slotResults.innerHTML = `
+      <div class="stat-icon feature-icon-purple">🏆</div>
+      <div>
+        <div class="stat-value">${count}</div>
+        <div class="stat-label">Cortes evaluados</div>
       </div>
     `;
 
@@ -253,7 +254,10 @@ async function loadResults() {
       `;
       listEl.appendChild(card);
     });
-  } catch {}
+  } catch {
+    slotResults.className = 'stat-card';
+    slotResults.innerHTML = '<div class="stat-icon feature-icon-purple">🏆</div><div><div class="stat-value">—</div><div class="stat-label">Cortes evaluados</div></div>';
+  }
 }
 
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }

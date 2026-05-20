@@ -11,6 +11,7 @@ from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, redirect
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -69,6 +70,8 @@ from api.claude_service import analyze_face, analyze_haircut_result
 
 @app.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return jsonify({"error": e.description or str(e)}), e.code
     import traceback
     traceback.print_exc()
     return jsonify({"error": str(e) or "Error interno del servidor"}), 500

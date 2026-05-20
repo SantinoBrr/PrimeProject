@@ -273,6 +273,7 @@ async function startAnalysis() {
     // Store results in sessionStorage and redirect
     sessionStorage.setItem('analysis_result', JSON.stringify(result.data));
     const analysisId = result.data.analysis_id || 'local';
+    hideLoading();
     window.location.href = `/results/${analysisId}`;
 
   } catch (err) {

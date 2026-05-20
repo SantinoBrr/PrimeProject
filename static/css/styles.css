@@ -614,7 +614,7 @@ select:-webkit-autofill {
   color: var(--text-primary);
 }
 
-.form-textarea { resize: vertical; min-height: 100px; }
+.form-textarea { resize: none; min-height: 80px; overflow: hidden; }
 
 .form-hint { font-size: 0.8rem; color: var(--text-muted); }
 .form-error { font-size: 0.8rem; color: var(--error); }

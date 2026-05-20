@@ -118,7 +118,7 @@
     <!-- SECTION 3: Dirección de crecimiento -->
     <div class="card mb-6">
       <div class="card-header">
-        <div class="card-title">↕ Dirección de crecimiento</div>
+        <div class="card-title">↕ Dirección de crecimiento <span class="required">*</span></div>
         <div class="card-subtitle">¿Hacia dónde crece naturalmente tu cabello desde el cuero cabelludo?</div>
       </div>
 
@@ -324,6 +324,14 @@ document.querySelectorAll('input, select, textarea').forEach(el => {
   el.addEventListener('input', updateProgress);
 });
 
+// Auto-resize textarea
+const notesTextarea = document.getElementById('additional_notes');
+function autoResizeTextarea() {
+  notesTextarea.style.height = 'auto';
+  notesTextarea.style.height = notesTextarea.scrollHeight + 'px';
+}
+notesTextarea.addEventListener('input', autoResizeTextarea);
+
 // Submit
 document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -333,7 +341,8 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
 
   // Validate required
   const fullName = document.getElementById('full_name').value.trim();
-  const age = parseInt(document.getElementById('age').value);
+  const ageStr = document.getElementById('age').value.trim();
+  const age = parseInt(ageStr, 10);
   const country = document.getElementById('country').value;
   const hairType = document.querySelector('input[name="hair_type"]:checked')?.value;
   const hairDensity = document.querySelector('input[name="hair_density"]:checked')?.value;
@@ -341,15 +350,25 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   const stylePref = document.querySelector('input[name="style_pref"]:checked')?.value;
   const maintenance = document.querySelector('input[name="maintenance"]:checked')?.value;
 
-  if (!fullName || !age || !country || !hairType || !hairDensity || !hairGrowth || !stylePref || !maintenance) {
-    errDiv.textContent = 'Por favor completá todos los campos requeridos (marcados con *).';
+  const missing = [];
+  if (!fullName) missing.push('Nombre');
+  if (!ageStr) missing.push('Edad');
+  if (!country) missing.push('País');
+  if (!hairType) missing.push('Textura de cabello');
+  if (!hairDensity) missing.push('Densidad de cabello');
+  if (!hairGrowth) missing.push('Dirección de crecimiento');
+  if (!stylePref) missing.push('Preferencia de estilo');
+  if (!maintenance) missing.push('Nivel de mantenimiento');
+
+  if (missing.length > 0) {
+    errDiv.textContent = `Falta completar: ${missing.join(', ')}.`;
     errDiv.classList.remove('hidden');
     errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
-  if (age < 10 || age > 100) {
-    errDiv.textContent = 'La edad debe ser entre 10 y 100 años.';
+  if (isNaN(age) || age < 10 || age > 100) {
+    errDiv.textContent = 'La edad debe ser un número entre 10 y 100 años.';
     errDiv.classList.remove('hidden');
     return;
   }

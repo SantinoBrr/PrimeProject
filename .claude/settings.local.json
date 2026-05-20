@@ -14,7 +14,12 @@
       "mcp__claude_ai_Netlify__get-netlify-coding-context",
       "mcp__claude_ai_Netlify__netlify-project-services-reader",
       "WebFetch(domain:primeproject-tad7.onrender.com)",
-      "WebFetch(domain:ihgqkydiwryinlyupwnn.supabase.co)"
+      "WebFetch(domain:ihgqkydiwryinlyupwnn.supabase.co)",
+      "Bash(py -c ' *)",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -18,7 +18,7 @@
       <div class="hero-eyebrow" style="display:inline-flex;margin-bottom:var(--space-4);" id="analysis-date-badge">
         ✦ Análisis completado
       </div>
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4);">
+      <div class="results-header">
         <div>
           <h1 style="font-size:2rem;margin-bottom:var(--space-2);">Tus recomendaciones personalizadas</h1>
           <p id="analysis-text" style="max-width:640px;"></p>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Face Shape Card -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8);">
+    <div class="grid-face-info">
       <div class="card card-glow-red">
         <div style="display:flex;align-items:center;gap:var(--space-4);">
           <div style="width:64px;height:64px;border-radius:50%;background:rgba(220,38,38,0.1);border:2px solid rgba(220,38,38,0.3);display:flex;align-items:center;justify-content:center;font-size:1.75rem;flex-shrink:0;">👤</div>
@@ -81,7 +81,7 @@
     </div>
 
     <!-- Action buttons -->
-    <div style="display:flex;gap:var(--space-4);justify-content:center;margin-top:var(--space-10);flex-wrap:wrap;">
+    <div class="results-actions">
       <a href="/feedback" class="btn btn-primary btn-lg">
         📸 Ya me corté — Evaluar resultado
       </a>
@@ -245,8 +245,8 @@ function createRecommendationCard(rec, index) {
   const card = document.createElement('div');
   card.className = `card-recommendation rank-${rankNum}`;
   card.innerHTML = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);">
-      <div style="flex:1;">
+    <div class="rec-card-top" style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);">
+      <div style="flex:1;min-width:0;">
         <div class="rec-rank-badge">
           <span class="badge ${rankBadgeClass} badge-rank">${rankNum}</span>
           <span class="badge badge-gray">${categoryLabel(rec.category)}</span>
@@ -255,7 +255,7 @@ function createRecommendationCard(rec, index) {
         <h3 style="font-size:1.25rem;margin-bottom:var(--space-2);">${rec.name}</h3>
         <p style="font-size:0.9rem;margin-bottom:0;">${rec.description}</p>
       </div>
-      <div style="display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-end;flex-shrink:0;">
+      <div class="rec-score-col" style="display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-end;flex-shrink:0;">
         <div style="text-align:center;">
           <div style="font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:${suitColor};line-height:1;">${rec.suitabilityScore || '—'}</div>
           <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Compatib.</div>

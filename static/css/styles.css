@@ -356,9 +356,8 @@ p { color: var(--text-secondary); line-height: 1.75; }
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
-  transition: var(--transition);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   position: relative;
-  overflow: hidden;
 }
 
 .card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }

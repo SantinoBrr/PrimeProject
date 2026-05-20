@@ -9,7 +9,10 @@
       "mcp__claude_ai_Supabase__get_project_url",
       "mcp__claude_ai_Supabase__execute_sql",
       "PowerShell(pip *)",
-      "PowerShell(py *)"
+      "PowerShell(py *)",
+      "mcp__claude_ai_Supabase__get_project",
+      "mcp__claude_ai_Netlify__get-netlify-coding-context",
+      "mcp__claude_ai_Netlify__netlify-project-services-reader"
     ]
   }
 }

@@ -6,6 +6,7 @@ Backend Flask principal
 import os
 import json
 import jwt as pyjwt
+from jwt import PyJWKClient
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, redirect
@@ -22,8 +23,19 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-in-produc
 # Supabase admin client (service role)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+
+_jwks_client: PyJWKClient | None = None
+
+def _get_jwks_client() -> PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        _jwks_client = PyJWKClient(
+            f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json",
+            cache_keys=True,
+            lifespan=300,
+        )
+    return _jwks_client
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_KEY else None
@@ -37,7 +49,7 @@ from api.claude_service import analyze_face, analyze_haircut_result
 # ─── Auth Middleware ──────────────────────────────────────────────────────────
 
 def require_auth(f):
-    """Decorador que verifica el JWT de Supabase antes de procesar la request."""
+    """Decorador que verifica el JWT de Supabase usando JWKS públicas."""
     @wraps(f)
     def decorated(*args, **kwargs):
         auth_header = request.headers.get("Authorization", "")
@@ -46,18 +58,21 @@ def require_auth(f):
 
         token = auth_header[7:]
         try:
+            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
             payload = pyjwt.decode(
                 token,
-                SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
+                signing_key.key,
+                algorithms=["RS256", "ES256"],
                 audience="authenticated",
                 options={"verify_exp": True},
             )
             request.user_id = payload.get("sub")
         except pyjwt.ExpiredSignatureError:
             return jsonify({"error": "Token expirado. Vuelve a iniciar sesión."}), 401
-        except pyjwt.InvalidTokenError as e:
+        except pyjwt.InvalidTokenError:
             return jsonify({"error": "Token inválido"}), 401
+        except Exception:
+            return jsonify({"error": "Error de autenticación"}), 401
 
         return f(*args, **kwargs)
     return decorated

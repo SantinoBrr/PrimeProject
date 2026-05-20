@@ -361,18 +361,7 @@ p { color: var(--text-secondary); line-height: 1.75; }
   overflow: hidden;
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--gradient-card);
-  opacity: 0;
-  transition: var(--transition);
-  pointer-events: none;
-}
-
 .card:hover { border-color: var(--border-hover); box-shadow: var(--shadow-md); }
-.card:hover::before { opacity: 1; }
 
 .card-header {
   margin-bottom: var(--space-5);

@@ -12,7 +12,9 @@
       "PowerShell(py *)",
       "mcp__claude_ai_Supabase__get_project",
       "mcp__claude_ai_Netlify__get-netlify-coding-context",
-      "mcp__claude_ai_Netlify__netlify-project-services-reader"
+      "mcp__claude_ai_Netlify__netlify-project-services-reader",
+      "WebFetch(domain:primeproject-tad7.onrender.com)",
+      "WebFetch(domain:ihgqkydiwryinlyupwnn.supabase.co)"
     ]
   }
 }

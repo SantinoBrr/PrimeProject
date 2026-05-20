@@ -38,9 +38,15 @@ def _get_jwks_client() -> PyJWKClient:
     return _jwks_client
 
 try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY) if SUPABASE_URL and SUPABASE_SERVICE_KEY else None
-except Exception:
+    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        print(f"[Supabase] Cliente inicializado correctamente → {SUPABASE_URL}")
+    else:
+        supabase = None
+        print("[Supabase] ADVERTENCIA: SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configuradas")
+except Exception as e:
     supabase = None
+    print(f"[Supabase] ERROR al inicializar cliente: {e}")
 
 # Import servicios de Claude
 from api.claude_service import analyze_face, analyze_haircut_result

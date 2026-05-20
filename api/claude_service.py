@@ -1,136 +1,80 @@
 """
-Servicio de integración con Claude API.
-Maneja análisis de imágenes faciales y evaluación de cortes de cabello.
+Servicio de análisis con Google Gemini API (tier gratuito).
+Mantiene la misma interfaz que el servicio anterior.
 """
 
-import anthropic
+import google.generativeai as genai
+import PIL.Image
+import io
 import os
 import json
-import base64
 import httpx
 
 from .prompts import build_face_analysis_prompt, build_haircut_feedback_prompt
 
-_client = None
+_configured = False
 
 
-def get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+def _get_model(max_tokens: int = 4096):
+    global _configured
+    if not _configured:
+        api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY no está configurada en las variables de entorno")
-        _client = anthropic.Anthropic(api_key=api_key)
-    return _client
+            raise ValueError("GEMINI_API_KEY no está configurada en las variables de entorno")
+        genai.configure(api_key=api_key)
+        _configured = True
+
+    return genai.GenerativeModel(
+        "gemini-1.5-flash",
+        generation_config=genai.GenerationConfig(
+            response_mime_type="application/json",
+            max_output_tokens=max_tokens,
+            temperature=0.4,
+        ),
+    )
 
 
-def fetch_image_as_base64(image_url: str) -> tuple:
-    """Descarga una imagen desde una URL y la convierte a base64."""
+def _fetch_image(image_url: str) -> PIL.Image.Image:
     with httpx.Client(timeout=30, follow_redirects=True) as http:
         response = http.get(image_url)
         response.raise_for_status()
-
-    content_type = response.headers.get("content-type", "image/jpeg").lower()
-    if "png" in content_type:
-        media_type = "image/png"
-    elif "webp" in content_type:
-        media_type = "image/webp"
-    elif "gif" in content_type:
-        media_type = "image/gif"
-    else:
-        media_type = "image/jpeg"
-
-    image_data = base64.standard_b64encode(response.content).decode("utf-8")
-    return image_data, media_type
+    return PIL.Image.open(io.BytesIO(response.content))
 
 
-def _parse_claude_json(raw_text: str) -> dict:
-    """
-    Parsea la respuesta de Claude asegurándose de extraer JSON puro,
-    incluso si Claude devuelve bloques de código markdown.
-    """
+def _parse_json(raw_text: str) -> dict:
     text = raw_text.strip()
-
     if text.startswith("```"):
         lines = text.split("\n")
-        start = 1
-        end = len(lines) - 1
-        for i, line in enumerate(lines):
-            if line.startswith("```") and i > 0:
-                end = i
-                break
-        text = "\n".join(lines[start:end]).strip()
-
-    # Buscar el primer { y el último } para extraer JSON
-    start_idx = text.find("{")
-    end_idx = text.rfind("}")
-    if start_idx != -1 and end_idx != -1:
-        text = text[start_idx : end_idx + 1]
-
+        end = next((i for i, l in enumerate(lines) if l.startswith("```") and i > 0), len(lines) - 1)
+        text = "\n".join(lines[1:end]).strip()
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1:
+        text = text[start:end + 1]
     return json.loads(text)
 
 
 def analyze_face(image_url: str, user_profile: dict) -> dict:
-    """
-    Analiza la imagen facial del usuario y genera recomendaciones de cortes de cabello.
-
-    Returns:
-        dict con 'success', 'data' (o 'error' si falla)
-    """
-    client = get_client()
+    try:
+        model = _get_model(max_tokens=4096)
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
     try:
-        image_data, media_type = fetch_image_as_base64(image_url)
+        image = _fetch_image(image_url)
     except Exception as e:
-        return {"success": False, "error": f"No se pudo descargar la imagen: {str(e)}"}
+        return {"success": False, "error": f"No se pudo descargar la imagen: {e}"}
 
-    analysis_prompt = build_face_analysis_prompt(user_profile)
+    prompt = build_face_analysis_prompt(user_profile)
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=(
-                "Eres un experto en análisis facial y recomendación de cortes de cabello. "
-                "Siempre respondes en JSON válido EXACTAMENTE como se te solicita, "
-                "sin texto adicional, sin markdown, sin explicaciones fuera del JSON. "
-                "Tus recomendaciones son precisas, personalizadas y actualizadas a las tendencias de 2026."
-            ),
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": analysis_prompt,
-                        },
-                    ],
-                }
-            ],
-        )
-
-        raw_response = message.content[0].text
-        result = _parse_claude_json(raw_response)
+        response = model.generate_content([prompt, image])
+        result = _parse_json(response.text)
         return {"success": True, "data": result}
-
     except json.JSONDecodeError as e:
-        return {
-            "success": False,
-            "error": "Claude devolvió una respuesta que no se pudo parsear como JSON.",
-            "details": str(e),
-        }
-    except anthropic.APIError as e:
-        return {"success": False, "error": f"Error de API de Anthropic: {str(e)}"}
+        return {"success": False, "error": "No se pudo parsear la respuesta como JSON.", "details": str(e)}
     except Exception as e:
-        return {"success": False, "error": f"Error inesperado: {str(e)}"}
+        return {"success": False, "error": f"Error al analizar con IA: {e}"}
 
 
 def analyze_haircut_result(
@@ -139,65 +83,23 @@ def analyze_haircut_result(
     selected_haircut_name: str,
     user_profile: dict,
 ) -> dict:
-    """
-    Analiza el corte de cabello realizado y proporciona feedback comparado
-    con la recomendación original.
-
-    Returns:
-        dict con 'success', 'data' (o 'error' si falla)
-    """
-    client = get_client()
+    try:
+        model = _get_model(max_tokens=2048)
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
     try:
-        image_data, media_type = fetch_image_as_base64(result_image_url)
+        image = _fetch_image(result_image_url)
     except Exception as e:
-        return {"success": False, "error": f"No se pudo descargar la imagen: {str(e)}"}
+        return {"success": False, "error": f"No se pudo descargar la imagen: {e}"}
 
-    feedback_prompt = build_haircut_feedback_prompt(
-        original_recommendations, selected_haircut_name, user_profile
-    )
+    prompt = build_haircut_feedback_prompt(original_recommendations, selected_haircut_name, user_profile)
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=2048,
-            system=(
-                "Eres un maestro barbero evaluando cortes de cabello con ojo crítico y constructivo. "
-                "Siempre respondes en JSON válido exactamente como se te solicita. "
-                "Eres honesto, técnico y específico en tus evaluaciones."
-            ),
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_data,
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": feedback_prompt,
-                        },
-                    ],
-                }
-            ],
-        )
-
-        raw_response = message.content[0].text
-        result = _parse_claude_json(raw_response)
+        response = model.generate_content([prompt, image])
+        result = _parse_json(response.text)
         return {"success": True, "data": result}
-
     except json.JSONDecodeError as e:
-        return {
-            "success": False,
-            "error": "No se pudo parsear la respuesta de Claude.",
-            "details": str(e),
-        }
-    except anthropic.APIError as e:
-        return {"success": False, "error": f"Error de API de Anthropic: {str(e)}"}
+        return {"success": False, "error": "No se pudo parsear la respuesta.", "details": str(e)}
     except Exception as e:
-        return {"success": False, "error": f"Error inesperado: {str(e)}"}
+        return {"success": False, "error": f"Error al analizar con IA: {e}"}

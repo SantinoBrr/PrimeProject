@@ -135,13 +135,13 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   btn.textContent = 'Creando cuenta...';
 
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/onboarding`
-      }
-    });
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera agotado. Verificá que SUPABASE_URL esté configurada en Render.')), 15000)
+    );
+    const { data, error } = await Promise.race([
+      supabase.auth.signUp({ email, password }),
+      timeout
+    ]);
 
     if (error) throw error;
 

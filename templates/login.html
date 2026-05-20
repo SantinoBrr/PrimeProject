@@ -79,7 +79,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   errDiv.classList.add('hidden');
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tiempo de espera agotado. Verificá que SUPABASE_URL esté configurada en Render.')), 15000)
+    );
+    const { data, error } = await Promise.race([
+      supabase.auth.signInWithPassword({ email, password }),
+      timeout
+    ]);
     if (error) throw error;
 
     // Check if profile is complete

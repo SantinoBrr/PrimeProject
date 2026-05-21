@@ -345,8 +345,11 @@ async function loadFaceDetector() {
     startDetectionLoop();
   } catch (err) {
     console.warn('BlazeFace load failed:', err);
-    setFaceStatus('noface', 'Detector no disponible — usá subir foto');
+    setFaceStatus('noface', 'Detector no disponible — podés capturar igual 📸');
     const b = document.getElementById('model-loading-bar'); if (b) b.style.opacity = '0';
+    const btn = document.getElementById('capture-btn');
+    btn.disabled = false; btn.style.opacity = '1';
+    startDetectionLoop();
   }
 }
 
@@ -542,6 +545,15 @@ async function startCamera() {
         loadFaceDetector();
       }
     }, { once: true });
+    // Fallback: if detector never loads after 10s, enable capture anyway
+    setTimeout(() => {
+      const btn = document.getElementById('capture-btn');
+      if (btn && btn.disabled && stream) {
+        btn.disabled = false; btn.style.opacity = '1';
+        setFaceStatus('noface', 'Detector no disponible — podés capturar igual 📸');
+        if (!detectionLoopId) startDetectionLoop();
+      }
+    }, 10000);
   } catch (err) {
     showToast('Error de cámara', 'No se pudo acceder a la cámara. Usá la opción de subir foto.', 'error');
     setMode('upload');

@@ -51,6 +51,7 @@
 .face-status-scanning { background: rgba(220,38,38,0.18); border-color: rgba(220,38,38,0.55); color: var(--red-bright); }
 .face-status-detected { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.55); color: #4ade80; }
 .face-status-noface   { background: rgba(245,158,11,0.18); border-color: rgba(245,158,11,0.55); color: #fbbf24; }
+.face-status-ready    { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.55); color: #4ade80; }
 .face-status-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -345,10 +346,10 @@ async function loadFaceDetector() {
     startDetectionLoop();
   } catch (err) {
     console.warn('BlazeFace load failed:', err);
-    setFaceStatus('noface', 'Detector no disponible — podés capturar igual 📸');
     const b = document.getElementById('model-loading-bar'); if (b) b.style.opacity = '0';
     const btn = document.getElementById('capture-btn');
     btn.disabled = false; btn.style.opacity = '1';
+    setFaceStatus('ready', 'Listo — presioná 📸 para capturar');
     startDetectionLoop();
   }
 }
@@ -420,12 +421,17 @@ function drawFaceOverlay(canvas, video, preds) {
 function drawIdleGrid(ctx, W, H) {
   if (!W || !H) return;
   ctx.clearRect(0, 0, W, H);
-  ctx.strokeStyle = 'rgba(220,38,38,0.1)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(220,38,38,0.08)'; ctx.lineWidth = 1;
   for (let x = 0; x <= W; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
   for (let y = 0; y <= H; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // Outer glow pass
   ctx.beginPath(); ctx.ellipse(W / 2, H / 2, W * 0.33, H * 0.42, 0, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(220,38,38,0.28)'; ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(220,38,38,0.22)'; ctx.lineWidth = 8;
+  ctx.setLineDash([]); ctx.stroke();
+  // Main ellipse
+  ctx.beginPath(); ctx.ellipse(W / 2, H / 2, W * 0.33, H * 0.42, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(220,38,38,0.9)'; ctx.lineWidth = 2;
+  ctx.setLineDash([10, 5]); ctx.stroke(); ctx.setLineDash([]);
 }
 
 function drawFaceZones(ctx, fx, fy, fw, fh) {
@@ -550,7 +556,7 @@ async function startCamera() {
       const btn = document.getElementById('capture-btn');
       if (btn && btn.disabled && stream) {
         btn.disabled = false; btn.style.opacity = '1';
-        setFaceStatus('noface', 'Detector no disponible — podés capturar igual 📸');
+        setFaceStatus('ready', 'Listo — presioná 📸 para capturar');
         if (!detectionLoopId) startDetectionLoop();
       }
     }, 10000);

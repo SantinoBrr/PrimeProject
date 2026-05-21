@@ -80,6 +80,9 @@ def analyze_face(image_url: str, user_profile: dict) -> dict:
     except json.JSONDecodeError as e:
         return {"success": False, "error": "No se pudo parsear la respuesta como JSON.", "details": str(e)}
     except Exception as e:
+        err_str = str(e)
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+            return {"success": False, "error": "Límite de la API de IA alcanzado. Activá facturación en Google AI Studio (ai.google.dev) y reintentá."}
         return {"success": False, "error": f"Error al analizar con IA: {e}"}
 
 
@@ -116,4 +119,7 @@ def analyze_haircut_result(
     except json.JSONDecodeError as e:
         return {"success": False, "error": "No se pudo parsear la respuesta.", "details": str(e)}
     except Exception as e:
+        err_str = str(e)
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+            return {"success": False, "error": "Límite de la API de IA alcanzado. Activá facturación en Google AI Studio (ai.google.dev) y reintentá."}
         return {"success": False, "error": f"Error al analizar con IA: {e}"}

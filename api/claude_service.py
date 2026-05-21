@@ -1,28 +1,28 @@
 """
-Servicio de análisis con Google Gemini API.
-Usa el SDK google-genai (reemplazo de google-generativeai deprecado).
+Servicio de análisis con Groq API (Llama 4 Scout Vision).
 """
 
-from google import genai
-from google.genai import types
+from groq import Groq
 import PIL.Image
 import io
 import os
 import json
+import base64
 import httpx
 
 from .prompts import build_face_analysis_prompt, build_haircut_feedback_prompt
 
-_client: genai.Client | None = None
+_client: Groq | None = None
+_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 
-def _get_client() -> genai.Client:
+def _get_client() -> Groq:
     global _client
     if _client is None:
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = os.environ.get("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("GEMINI_API_KEY no está configurada en las variables de entorno")
-        _client = genai.Client(api_key=api_key)
+            raise ValueError("GROQ_API_KEY no está configurada en las variables de entorno")
+        _client = Groq(api_key=api_key)
     return _client
 
 
@@ -33,10 +33,10 @@ def _fetch_image(image_url: str) -> PIL.Image.Image:
     return PIL.Image.open(io.BytesIO(response.content))
 
 
-def _image_to_part(image: PIL.Image.Image) -> types.Part:
+def _image_to_b64(image: PIL.Image.Image) -> str:
     buf = io.BytesIO()
     image.save(buf, format="JPEG")
-    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")
+    return base64.b64encode(buf.getvalue()).decode("utf-8")
 
 
 def _parse_json(raw_text: str) -> dict:
@@ -52,6 +52,13 @@ def _parse_json(raw_text: str) -> dict:
     return json.loads(text)
 
 
+def _handle_error(e: Exception) -> dict:
+    err = str(e)
+    if "429" in err or "rate_limit" in err.lower() or "quota" in err.lower():
+        return {"success": False, "error": "Límite de la API alcanzado. Intentá de nuevo en unos minutos."}
+    return {"success": False, "error": f"Error al analizar con IA: {e}"}
+
+
 def analyze_face(image_url: str, user_profile: dict) -> dict:
     try:
         client = _get_client()
@@ -63,27 +70,30 @@ def analyze_face(image_url: str, user_profile: dict) -> dict:
     except Exception as e:
         return {"success": False, "error": f"No se pudo descargar la imagen: {e}"}
 
+    b64 = _image_to_b64(image)
     prompt = build_face_analysis_prompt(user_profile)
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[prompt, _image_to_part(image)],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                max_output_tokens=6000,
-                temperature=0.4,
-            ),
+        response = client.chat.completions.create(
+            model=_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                    ],
+                }
+            ],
+            max_tokens=6000,
+            temperature=0.4,
         )
-        result = _parse_json(response.text)
+        result = _parse_json(response.choices[0].message.content)
         return {"success": True, "data": result}
     except json.JSONDecodeError as e:
         return {"success": False, "error": "No se pudo parsear la respuesta como JSON.", "details": str(e)}
     except Exception as e:
-        err_str = str(e)
-        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-            return {"success": False, "error": "Límite de la API de IA alcanzado. Activá facturación en Google AI Studio (ai.google.dev) y reintentá."}
-        return {"success": False, "error": f"Error al analizar con IA: {e}"}
+        return _handle_error(e)
 
 
 def analyze_haircut_result(
@@ -102,24 +112,27 @@ def analyze_haircut_result(
     except Exception as e:
         return {"success": False, "error": f"No se pudo descargar la imagen: {e}"}
 
+    b64 = _image_to_b64(image)
     prompt = build_haircut_feedback_prompt(original_recommendations, selected_haircut_name, user_profile)
 
     try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[prompt, _image_to_part(image)],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                max_output_tokens=2048,
-                temperature=0.4,
-            ),
+        response = client.chat.completions.create(
+            model=_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
+                    ],
+                }
+            ],
+            max_tokens=2048,
+            temperature=0.4,
         )
-        result = _parse_json(response.text)
+        result = _parse_json(response.choices[0].message.content)
         return {"success": True, "data": result}
     except json.JSONDecodeError as e:
         return {"success": False, "error": "No se pudo parsear la respuesta.", "details": str(e)}
     except Exception as e:
-        err_str = str(e)
-        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-            return {"success": False, "error": "Límite de la API de IA alcanzado. Activá facturación en Google AI Studio (ai.google.dev) y reintentá."}
-        return {"success": False, "error": f"Error al analizar con IA: {e}"}
+        return _handle_error(e)

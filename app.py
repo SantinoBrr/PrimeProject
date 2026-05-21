@@ -60,7 +60,7 @@ except Exception as e:
     if "Invalid API key" in str(e) or "invalid" in str(e).lower():
         print("[Supabase] DIAGNÓSTICO: La key debe ser formato JWT (empieza con eyJ...).")
         print("[Supabase]             Las keys sb_secret_... / sb_publishable_... NO son compatibles.")
-        print("[Supabase]             Usá las Legacy API Keys: Supabase → Settings → API → Legacy API Keys.")
+        print("[Supabase]             Usa las Legacy API Keys: Supabase -> Settings -> API -> Legacy API Keys.")
 
 # Import servicios de Claude
 from api.claude_service import analyze_face, analyze_haircut_result
@@ -260,10 +260,10 @@ def api_analyze_face():
     if supabase:
         try:
             face_features = result["data"].get("faceFeatures") or {}
-        facial_points = result["data"].get("facialPoints")
-        if facial_points:
-            face_features = {**face_features, "facialPoints": facial_points}
-        analysis_data = {
+            facial_points = result["data"].get("facialPoints")
+            if facial_points:
+                face_features = {**face_features, "facialPoints": facial_points}
+            analysis_data = {
                 "user_id": request.user_id,
                 "face_image_url": image_url,
                 "face_shape": result["data"].get("faceShape"),

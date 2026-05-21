@@ -161,10 +161,10 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     let msg = 'Error al crear la cuenta.';
     if (err.message?.includes('already registered') || err.message?.includes('already been')) {
       msg = 'Este email ya está registrado. <a href="/login" style="color:var(--blue-mid)">Iniciá sesión</a>.';
-    } else if (err.message) {
-      msg = err.message;
+      errDiv.innerHTML = msg;
+    } else {
+      errDiv.textContent = err.message || 'Error al crear la cuenta.';
     }
-    errDiv.innerHTML = msg;
     errDiv.classList.remove('hidden');
     btn.classList.remove('btn-loading');
     btn.disabled = false;

@@ -1,9 +1,10 @@
 """
-Servicio de análisis con Google Gemini API (tier gratuito).
-Mantiene la misma interfaz que el servicio anterior.
+Servicio de análisis con Google Gemini API.
+Usa el SDK google-genai (reemplazo de google-generativeai deprecado).
 """
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import PIL.Image
 import io
 import os
@@ -12,26 +13,17 @@ import httpx
 
 from .prompts import build_face_analysis_prompt, build_haircut_feedback_prompt
 
-_configured = False
+_client: genai.Client | None = None
 
 
-def _get_model(max_tokens: int = 4096):
-    global _configured
-    if not _configured:
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY no está configurada en las variables de entorno")
-        genai.configure(api_key=api_key)
-        _configured = True
-
-    return genai.GenerativeModel(
-        "gemini-2.0-flash",
-        generation_config=genai.GenerationConfig(
-            response_mime_type="application/json",
-            max_output_tokens=max_tokens,
-            temperature=0.4,
-        ),
-    )
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 
 def _fetch_image(image_url: str) -> PIL.Image.Image:
@@ -39,6 +31,12 @@ def _fetch_image(image_url: str) -> PIL.Image.Image:
         response = http.get(image_url)
         response.raise_for_status()
     return PIL.Image.open(io.BytesIO(response.content))
+
+
+def _image_to_part(image: PIL.Image.Image) -> types.Part:
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
+    return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg")
 
 
 def _parse_json(raw_text: str) -> dict:
@@ -56,7 +54,7 @@ def _parse_json(raw_text: str) -> dict:
 
 def analyze_face(image_url: str, user_profile: dict) -> dict:
     try:
-        model = _get_model(max_tokens=6000)
+        client = _get_client()
     except ValueError as e:
         return {"success": False, "error": str(e)}
 
@@ -68,7 +66,15 @@ def analyze_face(image_url: str, user_profile: dict) -> dict:
     prompt = build_face_analysis_prompt(user_profile)
 
     try:
-        response = model.generate_content([prompt, image])
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt, _image_to_part(image)],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=6000,
+                temperature=0.4,
+            ),
+        )
         result = _parse_json(response.text)
         return {"success": True, "data": result}
     except json.JSONDecodeError as e:
@@ -84,7 +90,7 @@ def analyze_haircut_result(
     user_profile: dict,
 ) -> dict:
     try:
-        model = _get_model(max_tokens=2048)
+        client = _get_client()
     except ValueError as e:
         return {"success": False, "error": str(e)}
 
@@ -96,7 +102,15 @@ def analyze_haircut_result(
     prompt = build_haircut_feedback_prompt(original_recommendations, selected_haircut_name, user_profile)
 
     try:
-        response = model.generate_content([prompt, image])
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[prompt, _image_to_part(image)],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=2048,
+                temperature=0.4,
+            ),
+        )
         result = _parse_json(response.text)
         return {"success": True, "data": result}
     except json.JSONDecodeError as e:

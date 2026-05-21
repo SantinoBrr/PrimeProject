@@ -224,6 +224,11 @@ Examina cuidadosamente la fotografía y determina:
 • Cuello: largo/corto/medio
 • Cualquier característica que deba considerarse (orejas prominentes, frente amplia, etc.)
 
+También clasifica las características en:
+• PUNTOS FUERTES: rasgos faciales favorables que el corte ideal debe destacar
+• PUNTOS NEUTROS: rasgos equilibrados que el corte puede mantener tal como están
+• PUNTOS A MEJORAR: rasgos que se pueden equilibrar o disimular con el corte correcto
+
 PASO 2 — EVALUACIÓN DE RESTRICCIONES CAPILARES:
 Basándote en el tipo + densidad + dirección de crecimiento:
 • ¿Qué cortes son naturalmente compatibles con este cabello?
@@ -257,6 +262,20 @@ Responde ÚNICAMENTE con JSON válido, sin ningún texto antes o después, sin m
     "neckLength": "corto|medio|largo",
     "ears": "descripción si es relevante",
     "distinctiveFeatures": "otras características notables o null"
+  }},
+  "facialPoints": {{
+    "strong": [
+      {{"feature": "nombre de la característica fuerte", "description": "por qué es un rasgo favorecedor y qué corte lo puede potenciar"}},
+      {{"feature": "segundo punto fuerte", "description": "descripción y cómo destacarlo"}}
+    ],
+    "neutral": [
+      {{"feature": "nombre de la característica neutral", "description": "descripción y qué considerar"}},
+      {{"feature": "segundo punto neutral", "description": "descripción"}}
+    ],
+    "weak": [
+      {{"feature": "nombre del área a mejorar", "description": "cómo el corte correcto puede equilibrar o disimular esta característica"}},
+      {{"feature": "segundo punto a mejorar", "description": "estrategia de corte para compensarlo"}}
+    ]
   }},
   "analysisText": "Párrafo de 3-4 oraciones explicando el análisis del rostro con precisión: proporciones específicas detectadas, cómo influyen en la elección del corte, y qué características destacar o equilibrar.",
   "recommendations": [

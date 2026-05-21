@@ -56,7 +56,7 @@ def _parse_json(raw_text: str) -> dict:
 
 def analyze_face(image_url: str, user_profile: dict) -> dict:
     try:
-        model = _get_model(max_tokens=4096)
+        model = _get_model(max_tokens=6000)
     except ValueError as e:
         return {"success": False, "error": str(e)}
 

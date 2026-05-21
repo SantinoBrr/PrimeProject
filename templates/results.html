@@ -49,6 +49,15 @@
       </div>
     </div>
 
+    <!-- Facial Points -->
+    <div class="card mb-8" id="facial-points-section" style="display:none;">
+      <div class="card-header" style="margin-bottom:var(--space-4);">
+        <div class="card-title">📊 Análisis de rasgos faciales</div>
+        <div class="card-subtitle">Clasificación de tus características para optimizar la recomendación de corte</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);" id="facial-points-grid"></div>
+    </div>
+
     <!-- Recommendations -->
     <div style="margin-bottom:var(--space-4);">
       <h2 style="font-size:1.4rem;margin-bottom:var(--space-2);">✂ Los 5 mejores cortes para vos</h2>
@@ -127,9 +136,11 @@ window._currentRecs = [];
       const result = await apiFetch(`/api/analysis/${analysisId}`);
       if (result.success) {
         const a = result.analysis;
+        const features = a.face_features || {};
         analysisData = {
           faceShape: a.face_shape,
-          faceFeatures: a.face_features,
+          faceFeatures: features,
+          facialPoints: features.facialPoints || null,
           analysisText: a.analysis_text,
           recommendations: a.recommendations,
           haircutsToAvoid: a.haircuts_to_avoid,
@@ -189,6 +200,56 @@ function renderResults(data) {
       featEl.appendChild(item);
     }
   });
+
+  // Facial Points (strong / neutral / weak)
+  const fp = data.facialPoints || (data.faceFeatures && data.faceFeatures.facialPoints) || null;
+  if (fp && (fp.strong?.length || fp.neutral?.length || fp.weak?.length)) {
+    const section = document.getElementById('facial-points-section');
+    const grid = document.getElementById('facial-points-grid');
+    section.style.display = '';
+
+    const cols = [
+      {
+        key: 'strong', title: 'Puntos fuertes', icon: '✦',
+        bg: 'rgba(34,197,94,0.07)', border: 'rgba(34,197,94,0.25)',
+        badgeStyle: 'background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3);',
+        titleColor: '#4ade80',
+      },
+      {
+        key: 'neutral', title: 'Puntos neutros', icon: '◆',
+        bg: 'rgba(148,163,184,0.07)', border: 'rgba(148,163,184,0.2)',
+        badgeStyle: 'background:rgba(148,163,184,0.15);color:#94a3b8;border:1px solid rgba(148,163,184,0.25);',
+        titleColor: '#94a3b8',
+      },
+      {
+        key: 'weak', title: 'A mejorar', icon: '◈',
+        bg: 'rgba(251,146,60,0.07)', border: 'rgba(251,146,60,0.25)',
+        badgeStyle: 'background:rgba(251,146,60,0.15);color:#fb923c;border:1px solid rgba(251,146,60,0.3);',
+        titleColor: '#fb923c',
+      },
+    ];
+
+    cols.forEach(col => {
+      const items = fp[col.key] || [];
+      const colEl = document.createElement('div');
+      colEl.style.cssText = `background:${col.bg};border:1px solid ${col.border};border-radius:var(--radius-lg);padding:var(--space-4);`;
+      colEl.innerHTML = `<div style="font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.07em;color:${col.titleColor};margin-bottom:var(--space-3);">${col.icon} ${col.title}</div>`;
+      if (items.length === 0) {
+        colEl.innerHTML += `<div style="font-size:0.8rem;color:var(--text-dim);">—</div>`;
+      } else {
+        items.forEach(item => {
+          const name = escHtml(item.feature || item.name || '');
+          const desc = escHtml(item.description || item.note || '');
+          colEl.innerHTML += `
+            <div style="margin-bottom:var(--space-3);">
+              <span style="display:inline-block;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-bottom:4px;${col.badgeStyle}">${name}</span>
+              ${desc ? `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;">${desc}</div>` : ''}
+            </div>`;
+        });
+      }
+      grid.appendChild(colEl);
+    });
+  }
 
   // Recommendations
   const recList = document.getElementById('recommendations-list');

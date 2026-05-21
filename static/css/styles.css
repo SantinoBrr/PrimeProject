@@ -1577,6 +1577,7 @@ select:-webkit-autofill {
   #main-grid              { grid-template-columns: 1fr; }
   .grid-face-info         { grid-template-columns: 1fr; }
   .form-grid-2col         { grid-template-columns: 1fr; }
+  #facial-points-grid     { grid-template-columns: 1fr !important; }
 
   /* ── Hero ── */
   .hero > .container      { padding-top: var(--space-6); padding-bottom: var(--space-6); }

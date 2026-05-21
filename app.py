@@ -259,11 +259,15 @@ def api_analyze_face():
     # Guardar el análisis
     if supabase:
         try:
-            analysis_data = {
+            face_features = result["data"].get("faceFeatures") or {}
+        facial_points = result["data"].get("facialPoints")
+        if facial_points:
+            face_features = {**face_features, "facialPoints": facial_points}
+        analysis_data = {
                 "user_id": request.user_id,
                 "face_image_url": image_url,
                 "face_shape": result["data"].get("faceShape"),
-                "face_features": result["data"].get("faceFeatures"),
+                "face_features": face_features,
                 "analysis_text": result["data"].get("analysisText"),
                 "recommendations": result["data"].get("recommendations"),
                 "haircuts_to_avoid": result["data"].get("haircutsToAvoid"),
